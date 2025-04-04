@@ -4,28 +4,28 @@
 
 import { Address4, Address6 } from "ip-address";
 
-const bigIntMinAndMax = (...args: bigint[]) => {
-    return args.reduce(([min,max], e) => {
-       return [
-         e < min ? e : min, 
-         e > max ? e : max,
-       ];
-    }, [args[0], args[0]]);
-  };
+// const bigIntMinAndMax = (...args: bigint[]) => {
+//     return args.reduce(([min,max], e) => {
+//        return [
+//          e < min ? e : min, 
+//          e > max ? e : max,
+//        ];
+//     }, [args[0], args[0]]);
+//   };
 
-const bigIntMax = (...args: bigint[]) => args.reduce((m, e) => e > m ? e : m);
-const bigIntMin = (...args: bigint[]) => args.reduce((m, e) => e < m ? e : m);
+// const bigIntMax = (...args: bigint[]) => args.reduce((m, e) => e > m ? e : m);
+// const bigIntMin = (...args: bigint[]) => args.reduce((m, e) => e < m ? e : m);
 
 const bounding_box = (first: bigint, slash: bigint, topPrefix: Address6 | Address4) => {
     const box = {
-        xmin: 0n,
-        ymin: 0n,
-        xmax: 0n,
-        ymax: 0n,
+        xmin: 0,
+        ymin: 0,
+        xmax: 0,
+        ymax: 0,
     }
     let diag = 0xAAAAAAAAn;
 
-    let x1 = 0n, y1 = 0n, x2 = 0n, y2 = 0n;
+    let x1 = 0, y1 = 0, x2 = 0, y2 = 0;
 
     if (slash > 31) {
         /*
@@ -46,8 +46,12 @@ const bounding_box = (first: bigint, slash: bigint, topPrefix: Address6 | Addres
         [x1, y1] = xy_from_ip(first, topPrefix);
         [x2, y2] = xy_from_ip(first + diag, topPrefix);
 
-        [box.xmin, box.xmax] = bigIntMinAndMax(x1,x2);
-        [box.ymin, box.ymax] = bigIntMinAndMax(y1,y2);
+        box.xmin = Math.min(x1,x2);
+        box.xmax = Math.max(x1,x2);
+
+        box.ymin = Math.min(y1,y2);
+        box.ymax = Math.max(y1,y2);
+
 
     } else {
         /*
@@ -56,24 +60,27 @@ const bounding_box = (first: bigint, slash: bigint, topPrefix: Address6 | Addres
         const b1 = bounding_box(first, slash + 1n,topPrefix);
         const b2 = bounding_box(first + (1n << (32n - (slash + 1n))), slash + 1n,topPrefix);
 
-        [box.xmin, box.xmax] = bigIntMinAndMax(b1.xmin,x2);
-        [box.ymin, box.ymax] = bigIntMinAndMax(y1,y2);
+        box.xmin = Math.min(x1,x2);
+        box.xmax = Math.max(x1,x2);
 
-        box.xmin = bigIntMin(b1.xmin, b2.xmin);
-        box.ymin = bigIntMin(b1.ymin, b2.ymin);
-        box.xmax = bigIntMax(b1.xmax, b2.xmax);
-        box.ymax = bigIntMax(b1.ymax, b2.ymax);
+        box.ymin = Math.min(y1,y2);
+        box.ymax = Math.max(y1,y2)
+
+        box.xmin = Math.min(b1.xmin, b2.xmin);
+        box.ymin = Math.min(b1.ymin, b2.ymin);
+        box.xmax = Math.max(b1.xmax, b2.xmax);
+        box.ymax = Math.max(b1.ymax, b2.ymax);
     }
     return box;
 }
 
 const xy_from_ip = (ip: bigint, topPrefix: Address4 | Address6) => {
     let s;
-    const maxSubnetSize = topPrefix instanceof Address4 ? 32: 128;
+    const maxSubnetSize = topPrefix instanceof Address4 ? 32 : 128;
     if (ip < topPrefix.startAddress().bigInt())
-        return [0n, 0n];
+        return [0, 0];
     if (ip > topPrefix.endAddress().bigInt())
-        return [0n, 0n];
+        return [0, 0];
     s = ip - topPrefix.startAddress().bigInt();
     const [x, y] = hil_xy_from_s(s, (maxSubnetSize - topPrefix.subnetMask)/2);
     return [x, y];
@@ -84,16 +91,16 @@ const hil_xy_from_s = (s: bigint, order: number) => {
     let i;
     let state, x, y, row;
 
-    state = 0n;			/* Initialize. */
-    x = y = 0n;
+    state = 0;			/* Initialize. */
+    x = y = 0;
 
-    const convertedOrder = BigInt(order);
 
-    for (i = 2n * convertedOrder - 2n; i >= 0n; i -= 2n) {	/* Do n times. */
-        row = 4n * state | ((s >> i) & 3n);	/* Row in table. */
-        x = (x << 1n) | ((0x936Cn >> row) & 1n);
-        y = (y << 1n) | ((0x39C6n >> row) & 1n);
-        state = (0x3E6B94C1n >> 2n * row) & 3n;	/* New state. */
+    for (i = 2 * order - 2; i >= 0; i -= 2) {	/* Do n times. */
+        console
+        row = 4 * state | Number((s >> BigInt(i)) & 3n);	/* Row in table. */
+        x = (x << 1) | ((0x936C >> row) & 1);
+        y = (y << 1) | ((0x39C6 >> row) & 1);
+        state = (0x3E6B94C1 >> 2 * row) & 3;	/* New state. */
     }
     return [x, y]
 }

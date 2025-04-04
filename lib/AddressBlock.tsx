@@ -24,7 +24,8 @@ function AddressBlock(props: AddressBlockProps) {
     const maxSubnetMask = isIPv6 ? 128 : 32;
 
     const block = isIPv6 ? new Address6(props.prefix) : new Address4(props.prefix)
-    
+    const topPrefix = isIPv6 ? new Address6(props.topPrefix) : new Address4(props.topPrefix)
+
 
     //const block = new Netmask(props.prefix);
 
@@ -105,10 +106,10 @@ function AddressBlock(props: AddressBlockProps) {
         }
 
         const bboxes = smaller_nets.map((x) => {
-
+            const prefix = baseClass.fromBigInt(x);
             return {
-                prefix: baseClass.fromBigInt(x).correctForm(),
-                ...bounding_box(x, BigInt(new_prefix_length), block)
+                prefix: prefix.correctForm() + `/${new_prefix_length}`,
+                ...bounding_box(x, BigInt(new_prefix_length), topPrefix)
             }
         });
         

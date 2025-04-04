@@ -15,7 +15,7 @@ function App() {
 
   const [hilbertStore, prefixManipulation, _useHoveredPrefix] = useControlledHilbert();
   const [selectedAS, setSelectedAS] = useDebouncedState("16509", 1000);
-  const [usedData, setUsedData] = useState<{maps: Record<number, Record<number, number>>, raw: Uint8Array}>({maps: {}, raw: new Uint8Array(0)});
+  const [usedData, setUsedData] = useState<{maps: Record<number, Record<string, number>>, raw: Uint8Array}>({maps: {}, raw: new Uint8Array(0)});
   const deferredUsedData = useDeferredValue(usedData);
   const topPrefix = useEnableKeyBindings(hilbertStore ,{originalTopPrefix: "0.0.0.0/0"});
 
@@ -43,7 +43,7 @@ function App() {
   useEffect(() => {
     if (!result.isSuccess) return;
     
-    const lookUpMaps: Record<number, Record<number, number>> = {
+    const lookUpMaps: Record<number, Record<string, number>> = {
       2: {},
       4: {},
       6: {},
@@ -79,7 +79,7 @@ function App() {
 
     for (const prefix of unique24s) {
       for (const i of mapIndexes) {
-        const base = ((prefix & (0xFFFFFFFF << (32 - i))) & 0xFFFFFFFF) >>>0;
+        const base = long2ip(((prefix & (0xFFFFFFFF << (32 - i))) & 0xFFFFFFFF) >>>0) + `/${i}`;
         if (base in lookUpMaps[i]) {
           lookUpMaps[i][base] += 1;
         } else {
@@ -94,7 +94,7 @@ function App() {
 
   }, [result.data, result.isSuccess, setUsedData]);
 
-  const colorBasedOnDensity: RenderFunction = useCallback((_prefix: string, long: number, netmask: number, config) => {
+  const colorBasedOnDensity: RenderFunction = useCallback((prefix: string, long: bigint, netmask: number, config) => {
     if (deferredUsedData.raw.length === 0) return;
 
     let value = 0;
@@ -103,10 +103,10 @@ function App() {
         value += entry;
       }
     } else if (netmask < 18) {
-      value = deferredUsedData.maps[netmask][long] ?? 0;
+      value = deferredUsedData.maps[netmask][prefix] ?? 0;
     } else {
       for (let i = 0; i < 2**(24-netmask); i++) {
-        if (deferredUsedData.raw[(long >>> 8) + i] === 1) {
+        if (deferredUsedData.raw[Number((long >> 8n)) + i] === 1) {
           value++;
         }
       }

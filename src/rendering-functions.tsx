@@ -1,6 +1,6 @@
 import { RenderFunction } from "../";
 
-const coloring: RenderFunction = (_prefix: string, _long: number, _netmask: number, config) => {
+const coloring: RenderFunction = (_prefix: string, _long: bigint, _netmask: number, config) => {
     const normalizedValue = config.properties["subnets"] || 0;
     let color = "";
 
