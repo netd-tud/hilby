@@ -1,7 +1,7 @@
 import './styles.css';
 
 import { ip2long, Netmask } from "netmask";
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { bounding_box } from "./hilbert";
 
 import { RenderFunction, SubnetConfig } from "./InteractiveHilbert";
@@ -19,7 +19,6 @@ interface AddressBlockProps {
 
 function AddressBlock(props: AddressBlockProps) {
     const [split, setSplit] = useState(props.split);
-    const ref = useRef<HTMLDivElement>(null);
     const block = new Netmask(props.prefix);
 
     const prefix_length = block.bitmask;
@@ -27,23 +26,6 @@ function AddressBlock(props: AddressBlockProps) {
     const prefixState = props.state(state => state.prefixState[props.prefix]);
     const setPrefixSplit = props.state(state => state.setPrefixSplit);
     const setHoverPrefix = props.state(state => state.setHoverPrefix);
-
-    if (prefixState === undefined) {
-    }
-
-    useEffect(() => {
-        if (ref.current === null) return;
-
-        //const baseWidth = 100000 / 2**((prefix_length - parseInt(props.topPrefix.split("/")[1]))/2)
-        //ref.current.style.fontSize = baseWidth / 15 + "px";
-        //ref.current.style.borderRadius = baseWidth / 20 + "px";
-        
-        if (!split) {
-           //ref.current.style.padding = baseWidth / 15 + "px";
-        } else {
-            //ref.current.style.padding = "0px";
-        }
-    }, [split])
 
     // memoize event handlers to prevent unnecessary re-renders
     const onClick = useCallback(() => {
@@ -115,7 +97,7 @@ function AddressBlock(props: AddressBlockProps) {
                 ...bounding_box(ip2long(new Netmask(x.base, new_prefix_length).first), new_prefix_length, props.topPrefix)
             }
         });
-        console.log(bboxes)
+        
         const order = bboxes.sort((a, b) => {
             if (a.ymin < b.ymin) {
                 return -1;
@@ -132,7 +114,7 @@ function AddressBlock(props: AddressBlockProps) {
         })
 
         return (
-            <div ref={ref} style={{ display: "flex", flexDirection: 'row', flexWrap: "wrap", height: percentage, width: percentage }} key={props.prefix} >
+            <div style={{ display: "flex", flexDirection: 'row', flexWrap: "wrap", height: percentage, width: percentage }} key={props.prefix} >
                 {order.map(e =>
                     <AddressBlock prefix={e.prefix} split={false} topPrefix={props.topPrefix} parentSplit={setSplit} renderFunctions={props.renderFunctions} key={e.prefix} state={props.state} />
                 )}
@@ -141,7 +123,7 @@ function AddressBlock(props: AddressBlockProps) {
     } else {
 
         return (
-            <div className={"net"} ref={ref} key={props.prefix} style={{overflow: "hidden", color: "white", ...config.style, height: percentage, width: percentage, }} onClick={onClick} onMouseOver={onMouseOver} onContextMenu={onContextMenu}>
+            <div className={"net"} key={props.prefix} style={{overflow: "hidden", color: "white", ...config.style, height: percentage, width: percentage, }} onClick={onClick} onMouseOver={onMouseOver} onContextMenu={onContextMenu}>
                 {config.innerContent}
             </div>
 

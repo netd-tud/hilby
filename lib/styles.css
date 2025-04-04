@@ -1,4 +1,7 @@
 .net {
     border: 1px solid white; 
     box-sizing: border-box;
+    container-type: inline-size;
+    padding: 6.66%;
+    color:white;
 }
