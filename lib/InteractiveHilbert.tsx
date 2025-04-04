@@ -11,7 +11,7 @@ type SubnetConfig = {
     properties: Record<string, any>;
 }
 
-type RenderFunction = (prefix: string, long: number, netmask: number, config: SubnetConfig) => void;
+type RenderFunction = (prefix: string, long: bigint, netmask: number, config: SubnetConfig) => void;
 
 interface InteractiveHilbertProps {
     topPrefix: string;

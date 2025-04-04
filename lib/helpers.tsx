@@ -49,7 +49,7 @@ const useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyB
 
 const basicColorRendering: (colorProperty: string, minValue: number, maxValue: number) => RenderFunction = (colorProperty: string, minValue: number, maxValue: number) => {
 
-    return (_prefix: string, _base: number, netmask: number, config: any) => {
+    return (_prefix: string, _base: bigint, netmask: number, config: any) => {
         let color = "(0,0,0)";
 
         const value = config.properties[colorProperty] as number;

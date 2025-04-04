@@ -1,9 +1,9 @@
 import './styles.css';
 
-import { ip2long, Netmask } from "netmask";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { bounding_box } from "./hilbert";
+import { Address4, Address6 } from "ip-address";
 
+import { bounding_box } from "./hilbert";
 import { RenderFunction, SubnetConfig } from "./InteractiveHilbert";
 import { HilbertStoreInstance } from "./useControlledHilbert";
 
@@ -19,9 +19,16 @@ interface AddressBlockProps {
 
 function AddressBlock(props: AddressBlockProps) {
     const [split, setSplit] = useState(props.split);
-    const block = new Netmask(props.prefix);
 
-    const prefix_length = block.bitmask;
+    const isIPv6 = props.prefix.includes(":");
+    const maxSubnetMask = isIPv6 ? 128 : 32;
+
+    const block = isIPv6 ? new Address6(props.prefix) : new Address4(props.prefix)
+    
+
+    //const block = new Netmask(props.prefix);
+
+    const prefix_length = block.subnetMask;
 
     const prefixState = props.state(state => state.prefixState[props.prefix]);
     const setPrefixSplit = props.state(state => state.setPrefixSplit);
@@ -29,7 +36,7 @@ function AddressBlock(props: AddressBlockProps) {
 
     // memoize event handlers to prevent unnecessary re-renders
     const onClick = useCallback(() => {
-        if (prefix_length < 32) {
+        if (prefix_length < maxSubnetMask) {
             setSplit(true);
         }
     }, [prefix_length, setSplit]);
@@ -65,13 +72,13 @@ function AddressBlock(props: AddressBlockProps) {
             properties: {}
         };
 
-        const long_base = ip2long(block.base);
+        const long_base = block.startAddress().bigInt();
 
         if (prefixState !== undefined && prefixState.config !== undefined && !prefixState.merge) {
             config = { ...config, ...prefixState.config };
         } else {
             for (const f of props.renderFunctions) {
-                f(props.prefix, long_base, block.bitmask, config);
+                f(props.prefix, long_base, block.subnetMask, config);
             }
         }
 
@@ -83,18 +90,25 @@ function AddressBlock(props: AddressBlockProps) {
 
 
         return config;
-    }, [props.prefix, block.base, block.bitmask, prefixState, props.renderFunctions]);
+    }, [props.prefix, prefixState, props.renderFunctions]);
 
-    if (split && prefix_length < 32) {
+    if (split && prefix_length < maxSubnetMask) {
         const new_prefix_length = prefix_length + 2
-        const base_smaller_net = new Netmask(block.base + "/" + new_prefix_length);
-        const smaller_nets = [base_smaller_net, base_smaller_net.next(), base_smaller_net.next().next(), base_smaller_net.next().next().next()]
+
+        const base_smaller_net = block.startAddress().bigInt();
+        const smaller_nets: bigint[] = [];
+
+        const baseClass = isIPv6 ? Address6 : Address4; 
+
+        for (let i = 0; i < 4; i++) {
+            smaller_nets.push(base_smaller_net + BigInt( ((1) << (maxSubnetMask - new_prefix_length)) * i ))
+        }
 
         const bboxes = smaller_nets.map((x) => {
-            console.log(ip2long(new Netmask(x.base, new_prefix_length).first), new_prefix_length, props.topPrefix)
+
             return {
-                prefix: x.toString(),
-                ...bounding_box(ip2long(new Netmask(x.base, new_prefix_length).first), new_prefix_length, props.topPrefix)
+                prefix: baseClass.fromBigInt(x).correctForm(),
+                ...bounding_box(x, BigInt(new_prefix_length), block)
             }
         });
         
