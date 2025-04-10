@@ -20,29 +20,24 @@ interface InteractiveHilbertProps {
 }
 
 const InteractiveHilbert = (props: InteractiveHilbertProps) => {
-
-    const [size, setSize] = useState<number>(500);
     const ref = useRef<HTMLDivElement>(null);
-    const { transform, setContainer, panZoomHandlers} = usePanZoom({ initialZoom: size / 100000, initialPan: { x: -(50000 - size / 2), y: -(50000 - size / 2) },/*minZoom: 0.5*size/8000*/ });
-
+    const { transform, setContainer, panZoomHandlers,setPan, setZoom} = usePanZoom({ initialZoom: 500 / 100000, initialPan: { x: -(50000 - 500 / 2), y: -(50000 - 500 / 2) }});
+    const [, refresh] = useState({});
     const hilbertStore = props.hilbertStore === undefined ? create(stateCreator) : props.hilbertStore;
 
     const resetPrefixes = hilbertStore(state => state.clearAllPrefixes)
-
+    
     useEffect(() => {
-        const handler = () => {
-            if (ref.current !== null) {
-                //const newSize = Math.min(window.innerHeight, window.innerWidth);
-                //setSize(newSize)
-                //setPan({x:-(50000) + newSize/2, y: -(50000) + newSize/2})
-            }
+        if (ref.current !== null) {
+            const width = ref.current.offsetWidth;
+            const height = ref.current.offsetHeight;
+            console.log(width, height);
+            console.log({x:-(50000) + width/2, y: -(50000) + height/2})
+            setPan({x:-(50000) + width/2, y: -(50000) + height/2});
+            setZoom(Math.min(height, width) * 0.000008);
+            refresh({});
         }
-        window.addEventListener('resize', handler);
-
-        return () => {
-            window.removeEventListener("resize", handler);
-        }
-    }, [setSize]);
+    }, [ref.current]);
 
     useEffect(() => {
         resetPrefixes();
@@ -53,12 +48,12 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
     }, [props.topPrefix, props.renderFunctions])
 
     return (
-        <div style={{ height: "100%", userSelect: "none", overflow: "hidden" }}>
-            <div ref={ref} style={{ height: 100000, width: 100000, }}>
+        <div ref={ref} style={{ height: "100%", userSelect: "none", overflow: "hidden" }}>
+            <div  style={{ height: 100000, width: 100000, }}>
                 <div ref={(el) => { setContainer(el) }} {...panZoomHandlers} style={{ touchAction: "none", width: "100%", height: "100%" }}>
                     <div style={{ transform, width: "100%", height: "100%" }}>
                         {content}
-                    </div>
+                    </div> 
                 </div>
             </div>
         </div>

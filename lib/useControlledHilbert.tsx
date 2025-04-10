@@ -19,7 +19,7 @@ type HilbertState = {
 
 type HilbertActions = {
     setPrefixConfig: (prefix: string, state: Partial<SubnetConfig>, merge?: boolean) => void;
-    setPrefixSplit: (prefix: string, split: boolean | null) => void;
+    setPrefixSplit: (prefix: string | string[], split: boolean | null) => void;
     clearAllPrefixes: () => void;
     clearPrefix: (prefix: string) => void;
     setHoverPrefix: (prefix: string, config: SubnetConfig) => void;
@@ -31,7 +31,7 @@ type PrefixStateManipulation = {
     setPrefixConfig: (prefix: string, state: Partial<SubnetConfig>) => void;
     clearPrefixState: (prefix: string) => void;
     clearAllPrefixes: () => void;
-    setPrefixSplit: (prefix: string, split: boolean | null) => void;
+    setPrefixSplit: (prefix: string | string[], split: boolean | null) => void;
 }
 
 type HilbertStore = HilbertState & HilbertActions;
@@ -64,18 +64,28 @@ const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
         } as HilbertStore;
     }),
     setPrefixSplit: (prefix, split) => set((state) => {
-        const current = state.prefixState[prefix];
 
-        return {
+        let prefixList = [];
+        if (!(prefix instanceof Array)) {
+            prefixList = [prefix]
+        } else {
+            prefixList = prefix;
+        }
+
+        const newState = {
             ...state,
             prefixState: {
-                ...state.prefixState,
-                [prefix]: {
-                    ...current,
-                    split: split
-                }
+                ...state.prefixState
             }
-        } as HilbertStore;
+        }
+        
+        for (const it_prefix of prefixList) {
+            const current = state.prefixState[it_prefix];
+
+            newState.prefixState[it_prefix] = {...current, split: split};
+        }
+
+        return newState as HilbertStore;
     }),
 
     clearAllPrefixes: () => set((state) => {
