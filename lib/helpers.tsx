@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { HilbertStoreInstance } from "./useControlledHilbert";
-import { Netmask } from "netmask";
+
 import { RenderFunction } from "./InteractiveHilbert";
+import { Address4, Address6 } from "ip-address";
 
 type KeyBindingsSettings = {
     originalTopPrefix: string;
@@ -32,11 +33,18 @@ const useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyB
             }
 
             if (e.key === (settings.zoomOutKey ?? "q")) {
-                const top = new Netmask(topPrefix);
-                if (top.bitmask < (settings.minLevel ?? 0) + 2) return;
-                const oneUp = new Netmask(top.base + "/" + (top.bitmask - 2).toString())
+                const isIPv6 = topPrefix.includes(":");
+                const baseClass = isIPv6 ? Address6 : Address4;
+                const top = new baseClass(topPrefix);
+                
+                const maxMaskSize = isIPv6 ? 128 : 32;
+                
+                if (top.subnetMask < (settings.minLevel ?? 0) + 2) return;
 
-                setTopPrefix(oneUp.base + "/" + oneUp.bitmask.toString())
+                const mask = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFn << BigInt(maxMaskSize - top.subnetMask + 2);
+
+                const oneUp = baseClass.fromBigInt(top.startAddress().bigInt() & mask).correctForm() + "/" + (top.subnetMask - 2).toString();
+                setTopPrefix(oneUp);
             }
         }
 
@@ -44,7 +52,7 @@ const useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyB
         return () => window.removeEventListener("keyup", x);
     }, [settings.originalTopPrefix, hilbertStore])
 
-    return topPrefix;
+    return [topPrefix, setTopPrefix] as const;
 }
 
 const basicColorRendering: (colorProperty: string, minValue: number, maxValue: number) => RenderFunction = (colorProperty: string, minValue: number, maxValue: number) => {

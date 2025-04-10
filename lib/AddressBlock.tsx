@@ -1,5 +1,5 @@
+// @ts-ignore
 import './styles.css';
-
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Address4, Address6 } from "ip-address";
 
@@ -26,9 +26,7 @@ function AddressBlock(props: AddressBlockProps) {
     const block = isIPv6 ? new Address6(props.prefix) : new Address4(props.prefix)
     const topPrefix = isIPv6 ? new Address6(props.topPrefix) : new Address4(props.topPrefix)
 
-
-    //const block = new Netmask(props.prefix);
-
+    //console.log(props.prefix, block, block.subnetMask, isIPv6)
     const prefix_length = block.subnetMask;
 
     const prefixState = props.state(state => state.prefixState[props.prefix]);
@@ -93,18 +91,19 @@ function AddressBlock(props: AddressBlockProps) {
         return config;
     }, [props.prefix, prefixState, props.renderFunctions]);
 
-    if (split && prefix_length < maxSubnetMask) {
+    const order = useMemo(() => {
         const new_prefix_length = prefix_length + 2
 
-        const base_smaller_net = block.startAddress().bigInt();
+        const base_smaller_net = block.bigInt();
         const smaller_nets: bigint[] = [];
 
-        const baseClass = isIPv6 ? Address6 : Address4; 
+        const baseClass = isIPv6 ? Address6 : Address4;
 
-        for (let i = 0; i < 4; i++) {
-            smaller_nets.push(base_smaller_net + BigInt( ((1) << (maxSubnetMask - new_prefix_length)) * i ))
+        for (let i = 0n; i < 4n; i++) {
+            const newValue = base_smaller_net + (1n << BigInt((maxSubnetMask - new_prefix_length))) * i
+            smaller_nets.push(newValue)
         }
-
+      
         const bboxes = smaller_nets.map((x) => {
             const prefix = baseClass.fromBigInt(x);
             return {
@@ -112,6 +111,7 @@ function AddressBlock(props: AddressBlockProps) {
                 ...bounding_box(x, BigInt(new_prefix_length), topPrefix)
             }
         });
+
         
         const order = bboxes.sort((a, b) => {
             if (a.ymin < b.ymin) {
@@ -127,7 +127,11 @@ function AddressBlock(props: AddressBlockProps) {
                 return 0;
             }
         })
+        return order;
+    }, [props.prefix])
 
+    if (split && prefix_length < maxSubnetMask) {
+        
         return (
             <div style={{ display: "flex", flexDirection: 'row', flexWrap: "wrap", height: percentage, width: percentage }} key={props.prefix} >
                 {order.map(e =>
@@ -138,7 +142,7 @@ function AddressBlock(props: AddressBlockProps) {
     } else {
 
         return (
-            <div className={"net"} key={props.prefix} style={{overflow: "hidden", color: "white", ...config.style, height: percentage, width: percentage, }} onClick={onClick} onMouseOver={onMouseOver} onContextMenu={onContextMenu}>
+            <div className={"net"} key={props.prefix} style={{...config.style, height: percentage, width: percentage, }} onClick={onClick} onMouseOver={onMouseOver} onContextMenu={onContextMenu}>
                 {config.innerContent}
             </div>
 
