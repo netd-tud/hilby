@@ -1,10 +1,10 @@
 {
-  "name": "ihpp",
+  "name": "hipp",
   "private": false,
   "version": "0.0.0",
   "type": "module",
   "license": "MIT",
-  "description": "A React component for displaying and interacting with Hilbert curve-based IP prefix visualizations.",
+  "description": "Hilbert Interactive Prefix Plots",
   "author": "amaennel",
   "keywords": [
     "react",
@@ -12,28 +12,37 @@
     "hilbert",
     "visualization",
     "prefix",
-    "networking"
+    "networking",
+    "interactive"
   ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b ./tsconfig.lib.json && vite build",
+    "test": "tsc -b ./tsconfig.lib.json && vite build && vite",
     "lint": "eslint .",
-    "preview": "vite preview",
+    "preview": "vite build -c vite.demo.config.ts && vite preview --outDir demo",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "ip-address": "^10.0.1",
-    "netmask": "^2.0.2"
+    "use-pan-and-zoom": "^0.6.5"
   },
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
-  "main": "dist/ihpp.js",
+  "main": "dist/HIPP.js",
+  "module": "./dist/HIPP.js",
   "types": "dist/main.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/HIPP.js"
+    }
+  },
   "files": [
     "dist"
   ],
+  "sideEffects": true,
   "devDependencies": {
     "@eslint/js": "^9.21.0",
     "@mantine/core": "^7.17.3",
@@ -48,12 +57,13 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^15.15.0",
+    "netmask": "^2.0.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
+    "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
-    "use-pan-and-zoom": "^0.6.5",
     "vite": "^6.2.0",
     "vite-plugin-dts": "^4.5.3",
     "vite-plugin-lib-inject-css": "^2.2.1",

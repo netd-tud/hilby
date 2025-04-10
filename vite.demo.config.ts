@@ -1,0 +1,28 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [
+    react(),
+  ],
+  build: {
+    rollupOptions: {
+      output: {
+        dir: "demo",
+    
+      },
+    },
+    cssMinify: false
+  },
+  optimizeDeps: {
+    exclude: []
+  },
+  resolve: {
+    alias: {
+      'hipp': path.resolve(__dirname, './dist/hipp.js') // or wherever your source is
+    }
+  }
+})
