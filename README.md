@@ -10,6 +10,7 @@ A React component for rendering interactive Hilbert curve visualizations. This c
 - **Interactive**: Fast pan and zoom functionality out of the box!
 - **Easily customizable**: Define functions that decide how each subnet looks!
 - **Split/merge functionality**: Visualize large areas of IP space with the right amount of detail!
+- **IPv6 ready**: Supports both IPv4 and IPv6 ranges!
 - **Hover interactions**: Use the hover position to build truly interactive UIs!
 - **Mobile Ready**: All interactions work on mobile!
 - **TypeScript support**: Types are shipped out of the box!
@@ -26,7 +27,7 @@ npm install @your-package/react-hilbert-curve
 import { InteractiveHilbert } from '@your-package/react-hilbert-curve';
 
 const renderFunctions = [
-    (prefix, base, netmask, config) => {
+    (prefix, long, netmask, config) => {
         config.innerContent.push(<div>{prefix}</div>);
     }
 ];
@@ -62,7 +63,7 @@ To change the looks and content of a subnet, an array of render functions can be
 import { InteractiveHilbert } from '@your-package/react-hilbert-curve';
 
 const renderFunctions = [
-    (prefix, base, netmask, config) => {
+    (prefix, long, netmask, config) => {
         config.innerContent.push(<div>{prefix}</div>);
     }
 ];
@@ -81,7 +82,7 @@ function App() {
 Whenever a subnet is rendered within the Hilbert Curve (this also applies to the top prefix), the functions provided via `renderFunctions` are executed in sequence.
 A render functions receives 4 parameters:
 1. `prefix`: `string` This is the CIDR Notation of the subnet being rendered (i.e. "1.0.0.0/8").
-2. `base`: `number` This is the network address in long, network-order format (i.e. 0x01000000).
+2. `long`: `bigint` This is the network address in long, network-order format (i.e. 0x01000000 for an IPv4 address).
 3. `netmask`: `number` This is the length of the network mask for the subnet being rendered (i.e. 8).
 4. `config`: `SubnetConfig` This is the object that controls how the subnet is rendered in the HilbertCurve.
 
@@ -103,7 +104,7 @@ Example:
 
 ```tsx
 // Change the color of the subnet square to red if its more specific than a /24
-const colorSmallSubnetsRed: RenderFunction = (prefix, base, netmask, config) => {
+const colorSmallSubnetsRed: RenderFunction = (prefix, long, netmask, config) => {
     if (netmask > 24) {
         config.style.backgroundColor = "rgb(255, 0, 0)";
     }
@@ -117,7 +118,7 @@ Example:
 
 ```tsx
 // Add the subnet name as a string to the body of the subnet square
-const addSubnetName: RenderFunction = (prefix, base, netmask, config) => {
+const addSubnetName: RenderFunction = (prefix, long, netmask, config) => {
     config.innerContent.push(<div>{prefix}</div>);
 }
 ```
@@ -131,18 +132,18 @@ Example:
 
 ```tsx
 // Get the packet count received by a subnet
-const addPacketCount: RenderFunction = (prefix, base, netmask, config) => {
+const addPacketCount: RenderFunction = (prefix, long, netmask, config) => {
     const receivedPacketCount = getPacketCountFromExternalDataSource(prefix);
     config.properties["packet_count"] = receivedPacketCount;
 }
 
 // Add packet count as string to the body of the subnet square
-const showPacketCount: RenderFunction = (prefix, base, netmask, config) => {
+const showPacketCount: RenderFunction = (prefix, long, netmask, config) => {
     config.innerContent.push(<div>{config.properties["packet_count"]} packets</div>);
 }
 
 // Color subnets with high traffic red
-const colorHighPacketCount: RenderFunction = (prefix, base, netmask, config) => {
+const colorHighPacketCount: RenderFunction = (prefix, long, netmask, config) => {
     if (config.properties["packet_count"] > 1000) {
         config.style.backgroundColor = "rgb(255, 0, 0)";
     }
@@ -226,10 +227,10 @@ clearAllPrefixes: () => void;
 #### 4. `setPrefixSplit`
 
 ```tsx
-setPrefixSplit: (prefix: string, split: boolean | null) => void;
+setPrefixSplit: (prefix: string | string[], split: boolean | null) => void;
 ```
 
-This function performs the same action as a left-click by a user, splitting the a subnet into its 4 subnets.
+This function performs the same action as a left-click by a user, splitting the subnet (or mulitple, if an array is passed) into its 4 subnets.
 The action set with the `split` parameter will be applied **once** and force a rerender of the subnet if its currently visible. 
 If its not visible, the action is stored until the subnet gets into view. (This means that a prefix can be "presplit".)
 
@@ -278,9 +279,9 @@ The library provides some helper functions to allow for easier and faster develo
 This hook allows a user to "expand" in and out of a prefix by changing the `topPrefix` of the HilbertCurve. It can be used to reduce clutter, if only a certain prefix is of interest.
 
 It requires a controlled Hilbert Curve and takes the corresponding `HilbertStoreInstance` as the first parameter. Additional settings can be set via the `KeyBindingsSettings` object.
-`originalTopPrefix` will probably take the value of the largest available prefix. `minLevel` and `maxLevel` allow to limit how far in and out a user can expand (defaulting to `0` and `32` respectively). The hotkeys for expanding in and out can be set via `zoomInKey` (default: `e`) and `zoomOutKey` (default: `q`).
+`originalTopPrefix` will probably take the value of the largest available prefix. `minLevel` and `maxLevel` allow to limit how far in and out a user can expand (defaulting to `0` and MAX_NUMBER_OF_BITS for the `originalTopPrefix` respectively). The hotkeys for expanding in and out can be set via `zoomInKey` (default: `e`) and `zoomOutKey` (default: `q`).
 
-The hook returns a state variable that should be passed to `topPrefix` of the HilbertCurve.
+The hook returns both a state variable that should be passed to `topPrefix` of the HilbertCurve and a setter to update that state externally (just like `useState`). 
 
 ```ts
 type KeyBindingsSettings = {
@@ -291,7 +292,7 @@ type KeyBindingsSettings = {
     zoomOutKey?: string;
 }
 
-type useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyBindingsSettings) => string;
+type useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyBindingsSettings) => [string, (newPrefix: string) => void];
 ```
 
 Example:
@@ -299,7 +300,7 @@ Example:
 function App() {
 
     const [hilbertStore, prefixStateManipulation, useHoveredPrefix] = useControlledHilbert()  
-    const topPrefix = useEnableKeyBindings(hilbertStore, {originalTopPrefix: "1.0.0.0/8", minLevel: 8, maxLevel: 32, zoomInKey: "e", zoomOutKey: "q"});
+    const [topPrefix, setTopPrefix] = useEnableKeyBindings(hilbertStore, {originalTopPrefix: "1.0.0.0/8", minLevel: 8, maxLevel: 32, zoomInKey: "e", zoomOutKey: "q"});
 
     return <InteractiveHilbert topPrefix={topPrefix} hilbertStore={hilbertStore}/>
 }
@@ -317,7 +318,7 @@ This renderFunction factory creates a RenderFunction which colors prefix squares
 
 Example:
 ```tsx
-const addPacketCount: RenderFunction = (prefix, base, netmask, config) => {
+const addPacketCount: RenderFunction = (prefix, long, netmask, config) => {
     // Fetch packet counts for each prefix from a datasource
     const receivedPacketCount = getPacketCountFromExternalDataSource(prefix);
     config.properties["packet_count"] = receivedPacketCount;
@@ -336,11 +337,15 @@ return <InteractiveHilbert topPrefix={"0.0.0.0/0"} renderFunctions={renderFuncti
 
 ## Performance
 
+### Quick External Data Access
 The component is designed with performance in mind. For this reason render function outputs are memoized as much as possible and rerenders are keep to a minimum.
 
-The implementation of the render functions are however of crucial importance to the overall speed of the Curve. Heavy computation, data fetches and complex object accesses **should be avoided where possible**. This is especially true if large changes are caused at once by the use of the `PrefixStateManipulation` API.
-
+The implementation of the render functions are however of crucial importance to the overall speed of the Curve. Heavy computation, data fetches and complex object accesses in render functions **should be avoided where possible**. This is especially true if large changes are caused at once by the use of the `PrefixStateManipulation` API.
 Since IP address space data is one dimensional, [TypedArrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray) can be very useful to store large amounts of numeric data in quickly indexable objects. For this reason the integer form of the prefix is passed into the `renderFunction` as well.
+
+### Bigint speeds
+
+To support both IPv4 and IPv6, all addresses are stored in `BigInt`s internally. These are naturally slower than `Number`. For IPv4, optimizations in JS engines seem to keep these differences minimal. For IPv6 however, the speed difference is noticable. Large changes in IPv6 visualizations like splitting >4 layers deep at once should therefore be avoided.  
 
 ## Component API
 
@@ -353,7 +358,7 @@ Since IP address space data is one dimensional, [TypedArrays](https://developer.
 />
 ```
 #### Props:
-- `topPrefix: string` - The root prefix to start rendering from
+- `topPrefix: string` - The root prefix to start rendering from (accepts both IPv4 and IPv6 prefixes)
 - `renderFunctions: RenderFunction[]` - Array of functions that customize the rendering of each block
 - `hilbertStore?: HilbertStore` - Optional store for controlled curves. Obtain this via `useControlledHilbert`.
 
@@ -362,7 +367,7 @@ Since IP address space data is one dimensional, [TypedArrays](https://developer.
 ```typescript
 type RenderFunction = (
     prefix: string,
-    base: number,
+    long: number,
     netmask: number,
     config: SubnetConfig
 ) => void;
