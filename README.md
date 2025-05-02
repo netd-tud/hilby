@@ -19,12 +19,12 @@ A React component for rendering interactive Hilbert curve visualizations. This c
 ## Installation
 
 ```bash
-npm install @your-package/react-hilbert-curve
+npm install @netd-tud/react-hilbert-curve
 ```
 ## Basic Usage
 
 ```tsx
-import { InteractiveHilbert } from '@your-package/react-hilbert-curve';
+import { InteractiveHilbert } from '@netd-tud/react-hilbert-curve';
 
 const renderFunctions = [
     (prefix, long, netmask, config) => {
@@ -417,3 +417,14 @@ type PrefixStateManipulation {
 ## License
 
 MIT
+
+## Author 
+
+Alexander Männel (alexander.maennel@tu-dresden.de)
+
+## Building this repo
+
+`yarn dev` to run the demo page locally 
+`yarn build` to build the library in `dist/`
+`yarn test` to build the library and run the demo with the new build
+`yarn preview` to create a production build of the demo 
