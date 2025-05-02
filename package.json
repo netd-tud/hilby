@@ -1,5 +1,5 @@
 {
-  "name": "hipp",
+  "name": "@netd-tud/hilby",
   "private": false,
   "version": "0.0.0",
   "type": "module",
@@ -31,12 +31,12 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
-  "main": "dist/HIPP.js",
-  "module": "./dist/HIPP.js",
+  "main": "dist/hilby.js",
+  "module": "./dist/hilby.js",
   "types": "dist/main.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/HIPP.js"
+      "import": "./dist/hilby.js"
     }
   },
   "files": [
