@@ -20,9 +20,4 @@ export default defineConfig({
   optimizeDeps: {
     exclude: []
   },
-  resolve: {
-    alias: {
-      'hipp': path.resolve(__dirname, './dist/hipp.js') // or wherever your source is
-    }
-  }
 })
