@@ -163,11 +163,11 @@ function App() {
 
     return (
         <AppShell m="lg">
-            <Title order={1}>HIPP</Title>
+            <Title order={1}>Hilby</Title>
             <Text style={{ "opacity": 0.7 }} fw={500} size="xl" mb={10}>Hilbert Interactive Prefix Plots</Text>
             <Group mb={20}>
-                <Button color='gray' leftSection={<FaGithub size={"22"} />} >See on Github</Button>
-                <Button color='gray'>Documentation</Button>
+                <Button component="a" color='gray' leftSection={<FaGithub size={"22"}/>} target="_blank" href="https://github.com/netd-tud/hilby">See on Github</Button>
+                <Button color='gray' component='a' target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">Documentation</Button>
                 <Switch onChange={(e) => {
                     setipv6(e.currentTarget.checked);
                     setUsedData(null);
