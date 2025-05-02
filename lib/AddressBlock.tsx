@@ -1,6 +1,6 @@
 // @ts-ignore
 import './styles.css';
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Address4, Address6 } from "ip-address";
 
 import { bounding_box } from "./hilbert";
@@ -18,7 +18,8 @@ interface AddressBlockProps {
 }
 
 function AddressBlock(props: AddressBlockProps) {
-    const [split, setSplit] = useState(props.split);
+    const prefixState = props.state(state => state.prefixState[props.prefix]);
+    const [split, setSplit] = useState(prefixState?.split ?? false);
 
     const isIPv6 = props.prefix.includes(":");
     const maxSubnetMask = isIPv6 ? 128 : 32;
@@ -29,7 +30,6 @@ function AddressBlock(props: AddressBlockProps) {
     //console.log(props.prefix, block, block.subnetMask, isIPv6)
     const prefix_length = block.subnetMask;
 
-    const prefixState = props.state(state => state.prefixState[props.prefix]);
     const setPrefixSplit = props.state(state => state.setPrefixSplit);
     const setHoverPrefix = props.state(state => state.setHoverPrefix);
 
@@ -45,51 +45,13 @@ function AddressBlock(props: AddressBlockProps) {
         e.preventDefault();
     }, [props.parentSplit]);
 
-    const onMouseOver = useCallback(() => {
-        setHoverPrefix(props.prefix, config)
-    }, [props.prefix, setHoverPrefix]);
-
     const percentage = props.topPrefix === props.prefix ? "100%" : "50%"
 
     // Update split state when prefix state changes
-    useEffect(() => {
-        if (prefixState !== undefined && prefixState.split !== null) {
-            setSplit(prefixState.split);
-            setPrefixSplit(props.prefix, null);
-        }
-    }, [prefixState, props.prefix, setPrefixSplit]);
-
-    // Memoize the config object to prevent unnecessary recalculations
-    // Only recalculate when dependencies change
-    const config = useMemo(() => {
-        let config: SubnetConfig = {
-            style: {
-                backgroundColor: "rgb(0,0,0)",
-                color: "rgb(255,255,255)",
-            },
-            innerContent: [],
-            properties: {}
-        };
-
-        const long_base = block.startAddress().bigInt();
-
-        if (prefixState !== undefined && prefixState.config !== undefined && !prefixState.merge) {
-            config = { ...config, ...prefixState.config };
-        } else {
-            for (const f of props.renderFunctions) {
-                f(props.prefix, long_base, block.subnetMask, config);
-            }
-        }
-
-        if (prefixState !== undefined && prefixState.config !== undefined && prefixState.merge) {
-            config.innerContent = [...config.innerContent, ...(prefixState.config.innerContent ?? [])];
-            config.properties = { ...config.properties, ...prefixState.config.properties };
-            config.style = { ...config.style, ...prefixState.config.style };
-        }
-
-
-        return config;
-    }, [props.prefix, prefixState, props.renderFunctions]);
+    if (prefixState !== undefined && prefixState.split !== null && prefixState.split !== split) {
+        setSplit(prefixState.split);
+        setPrefixSplit(props.prefix, null);
+    }
 
     const order = useMemo(() => {
         const new_prefix_length = prefix_length + 2
@@ -131,7 +93,6 @@ function AddressBlock(props: AddressBlockProps) {
     }, [props.prefix])
 
     if (split && prefix_length < maxSubnetMask) {
-        
         return (
             <div style={{ display: "flex", flexDirection: 'row', flexWrap: "wrap", height: percentage, width: percentage }} key={props.prefix} >
                 {order.map(e =>
@@ -140,6 +101,35 @@ function AddressBlock(props: AddressBlockProps) {
             </div>
         )
     } else {
+
+        let config: SubnetConfig = {
+            style: {
+                backgroundColor: "rgb(0,0,0)",
+                color: "rgb(255,255,255)",
+            },
+            innerContent: [],
+            properties: {}
+        };
+
+        const long_base = block.startAddress().bigInt();
+
+        if (prefixState !== undefined && prefixState.config !== undefined && !prefixState.merge) {
+            config = { ...config, ...prefixState.config };
+        } else {
+            for (const f of props.renderFunctions) {
+                f(props.prefix, long_base, block.subnetMask, config);
+            }
+        }
+
+        if (prefixState !== undefined && prefixState.config !== undefined && prefixState.merge) {
+            config.innerContent = [...config.innerContent, ...(prefixState.config.innerContent ?? [])];
+            config.properties = { ...config.properties, ...prefixState.config.properties };
+            config.style = { ...config.style, ...prefixState.config.style };
+        }
+
+        const onMouseOver = () => {
+            setHoverPrefix(props.prefix, config);
+        };
 
         return (
             <div className={"net"} key={props.prefix} style={{...config.style, height: percentage, width: percentage, }} onClick={onClick} onMouseOver={onMouseOver} onContextMenu={onContextMenu}>
