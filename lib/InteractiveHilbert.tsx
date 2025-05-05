@@ -48,7 +48,7 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
     }, [props.topPrefix, props.renderFunctions])
 
     return (
-        <div ref={ref} style={{ maxHeight: "100vh", maxWidth: "100vw", userSelect: "none", overflow: "hidden" }}>
+        <div ref={ref} style={{ maxHeight: "min(100vh, 100%)", maxWidth: "min(100vw, 100%)", userSelect: "none", overflow: "hidden" }}>
             <div  style={{ height: 100000, width: 100000, }}>
                 <div ref={(el) => { setContainer(el) }} {...panZoomHandlers} style={{ touchAction: "none", width: "100%", height: "100%" }}>
                     <div style={{ transform, width: "100%", height: "100%" }}>
