@@ -1,7 +1,7 @@
 {
   "name": "@netd-tud/hilby",
   "private": false,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "description": "Hilbert Interactive Prefix Plots",
@@ -24,9 +24,7 @@
     "previewDemo": "npm run buildDemo && vite preview --outDir demo",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {
- 
-  },
+  "dependencies": {},
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
