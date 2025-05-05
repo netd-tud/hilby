@@ -1,6 +1,9 @@
-# React Hilbert Curve Component
+# Hilby - Hilbert Interactive Prefix Plots
 
 A React component for rendering interactive Hilbert curve visualizations. This component provides a flexible and customizable way to visualize hierarchical data using Hilbert curve space-filling patterns.
+
+#### [Demo](https://netd-tud.github.io/hilby/)
+
 <p align="center">
   <img src="docs/screenshot.png" alt="Screenshot of the library in action"/>
 </p>
