@@ -21,7 +21,7 @@ interface InteractiveHilbertProps {
 
 const InteractiveHilbert = (props: InteractiveHilbertProps) => {
     const ref = useRef<HTMLDivElement>(null);
-    const { transform, setContainer, panZoomHandlers,setPan, setZoom} = usePanZoom({ initialZoom: 500 / 100000, initialPan: { x: -(50000 - 500 / 2), y: -(50000 - 500 / 2) }});
+    const { transform, setContainer, panZoomHandlers,setPan, setZoom} = usePanZoom({ initialZoom: 500 / 100000, initialPan: { x: -(50000 - 500 / 2), y: -(50000 - 500 / 2) }, zoomSensitivity: 0.005});
     const [, refresh] = useState({});
     const hilbertStore = props.hilbertStore === undefined ? create(stateCreator) : props.hilbertStore;
 
