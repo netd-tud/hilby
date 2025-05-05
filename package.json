@@ -2,6 +2,10 @@
   "name": "@netd-tud/hilby",
   "private": false,
   "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/netd-tud/hilby.git"
+  },
   "type": "module",
   "license": "MIT",
   "description": "Hilbert Interactive Prefix Plots",
@@ -21,6 +25,7 @@
     "test": "tsc -b ./tsconfig.lib.json && vite build && vite",
     "lint": "eslint .",
     "buildDemo": "npm run build && vite build -c vite.demo.config.ts",
+    "buildPages": "npm run build && vite build -c vite.pages.config.ts",
     "previewDemo": "npm run buildDemo && vite preview --outDir demo",
     "prepublishOnly": "npm run build"
   },

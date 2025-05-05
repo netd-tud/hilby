@@ -1,7 +1,7 @@
 import './App.css'
 
 import { useCallback, useDeferredValue, useEffect, useState } from 'react'
-import { AppShell, Button, Group, Input, Loader, Switch, Text, Title } from "@mantine/core";
+import { AppShell, Button, Group, Input, Loader, Switch, Text, Title, Image } from "@mantine/core";
 import { useDebouncedState } from '@mantine/hooks';
 import { ip2long, long2ip } from 'netmask';
 import { useQuery } from "@tanstack/react-query";
@@ -13,15 +13,17 @@ import { response } from './response';
 import { newAdd, coloring, getPercentage } from './rendering-functions';
 import { Address6 } from 'ip-address';
 
+import ripeLogo from "./ripe_stat_logo.png";
+
 function App() {
 
     const [ipv6, setipv6] = useState(false);
     const [worker, setWorker] = useState<Worker | null>(null);
     const [usedData, setUsedData] = useState<{ maps: Record<number, Record<string, number>>, raw: Uint8Array } | Address6[] | null>(null);
-    
+
     const [selectedAS, setSelectedAS] = useDebouncedState("16509", 1000);
     const deferredUsedData = useDeferredValue(usedData);
-    
+
     const [hilbertStore, prefixManipulation, _useHoveredPrefix] = useControlledHilbert();
     const [topPrefix, setTopPrefix] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
 
@@ -40,7 +42,7 @@ function App() {
                 const collection: Address6[] = [];
                 if (e.data.data.length === 0) {
                     setNoData(true);
-                }else {
+                } else {
                     setNoData(false);
                 }
 
@@ -48,7 +50,7 @@ function App() {
                     collection.push(new Address6(ip));
 
                 }
-                setUsedData(collection); 
+                setUsedData(collection);
             } else {
                 if (e.data.data.raw.length === 0) {
                     setNoData(true);
@@ -56,7 +58,7 @@ function App() {
                     setNoData(false);
                 }
 
-                setUsedData(e.data.data); 
+                setUsedData(e.data.data);
             }
         };
 
@@ -153,7 +155,7 @@ function App() {
             maxNumberOfSubnets = 2 ** (48 - netmask);
         }
 
-        const normalizedValue = actualNumberOfSubnets / Math.max(maxNumberOfSubnets,1);
+        const normalizedValue = actualNumberOfSubnets / Math.max(maxNumberOfSubnets, 1);
         config.properties["subnets"] = normalizedValue;
 
     }, [deferredUsedData, isLoading, ipv6])
@@ -166,7 +168,7 @@ function App() {
             <Title order={1}>Hilby</Title>
             <Text style={{ "opacity": 0.7 }} fw={500} size="xl" mb={10}>Hilbert Interactive Prefix Plots</Text>
             <Group mb={20}>
-                <Button component="a" color='gray' leftSection={<FaGithub size={"22"}/>} target="_blank" href="https://github.com/netd-tud/hilby">See on Github</Button>
+                <Button component="a" color='gray' leftSection={<FaGithub size={"22"} />} target="_blank" href="https://github.com/netd-tud/hilby">See on Github</Button>
                 <Button color='gray' component='a' target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">Documentation</Button>
                 <Switch onChange={(e) => {
                     setipv6(e.currentTarget.checked);
@@ -179,7 +181,7 @@ function App() {
                     size='lg'
                     color="oklch(0.55 0.1357 267.88)"
                 />
-
+                
             </Group>
 
             <Group mb={20} >
@@ -229,13 +231,21 @@ function App() {
                                 itr += ctr;
                             }
                         }
-                        
+
                         prefixManipulation.setPrefixSplit(prefixes, true);
 
                     }}>
                     Show all /10s
                 </Button>}
                 <Text> {result.isFetching ? `Fetching data from RIPEStat for AS${selectedAS}` : ""}</Text>
+                <Group ml={"auto"}>
+                    <Text ms={20}>Data used in example provided by </Text>
+                    <a href="https://stat.ripe.net/" target='_blank'>
+                        <Image h="60" src={ripeLogo} w="auto"
+                            fit="contain"
+                        />
+                    </a>
+                </Group>
             </Group>
             <div className="hilbert-container" style={{ backgroundColor: "var(--mantine-color-gray-6)" }}>
                 {isLoading && <Loader color="oklch(0.55 0.1357 267.88)" />}
