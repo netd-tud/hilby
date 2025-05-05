@@ -51,10 +51,18 @@ The `InteractiveHilbert` component is at the core of this project. It requires t
 ```tsx
 import { InteractiveHilbert } from '@netd-tud/hilby';
 
+// Example function, just to display something in each subnet
+const renderFunctions = [
+    (prefix, long, netmask, config) => {
+        config.innerContent.push(<div>{prefix}</div>);
+    }
+];
+
 function App() {
     return (
         <InteractiveHilbert 
             topPrefix="1.0.0.0/8"
+            renderFunctions={renderFunctions}
         />
     );
 }
