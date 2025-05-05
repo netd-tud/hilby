@@ -71,7 +71,12 @@ function App() {
         if (ipv6) {
             isLoading = (usedData as Address6[]).length === 0 && !noData;
         } else {
-            isLoading = (usedData as { maps: Record<number, Record<string, number>>, raw: Uint8Array }).raw.length === 0;
+            if (!usedData.hasOwnProperty("raw")) {
+                isLoading = true;
+            } else {
+
+                isLoading = (usedData as { maps: Record<number, Record<string, number>>, raw: Uint8Array }).raw.length === 0;
+            }
         }
     } else {
         isLoading = true;
@@ -176,6 +181,7 @@ function App() {
                     setTopPrefix(e.currentTarget.checked ? "2000::/4" : "0.0.0.0/0");
                 }
                 }
+                    disabled={isLoading}
                     checked={ipv6}
                     onLabel="IPv6" offLabel="IPv4"
                     size='lg'
