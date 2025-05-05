@@ -2,7 +2,7 @@
 
 A React component for rendering interactive Hilbert curve visualizations. This component provides a flexible and customizable way to visualize hierarchical data using Hilbert curve space-filling patterns.
 <p align="center">
-  <img src="screenshot.png" alt="Sublime's custom image"/>
+  <img src="docs/screenshot.png" alt="Screenshot of the library in action"/>
 </p>
 
 ## Features
@@ -12,19 +12,18 @@ A React component for rendering interactive Hilbert curve visualizations. This c
 - **Split/merge functionality**: Visualize large areas of IP space with the right amount of detail!
 - **IPv6 ready**: Supports both IPv4 and IPv6 ranges!
 - **Hover interactions**: Use the hover position to build truly interactive UIs!
-- **Mobile Ready**: All interactions work on mobile!
 - **TypeScript support**: Types are shipped out of the box!
 - **Some batteries included**: Basic functions for visualization and key control are provided out of the box!
 
 ## Installation
 
 ```bash
-npm install @netd-tud/react-hilbert-curve
+npm install @netd-tud/hilby
 ```
 ## Basic Usage
 
 ```tsx
-import { InteractiveHilbert } from '@netd-tud/react-hilbert-curve';
+import { InteractiveHilbert } from '@netd-tud/hilby';
 
 const renderFunctions = [
     (prefix, long, netmask, config) => {
@@ -47,7 +46,7 @@ function App() {
 The `InteractiveHilbert` component is at the core of this project. It requires the highest prefix that should be visualized (in this case 1.0.0.0/8).
 
 ```tsx
-import { InteractiveHilbert } from '@your-package/react-hilbert-curve';
+import { InteractiveHilbert } from '@netd-tud/hilby';
 
 function App() {
     return (
@@ -60,7 +59,7 @@ function App() {
 To change the looks and content of a subnet, an array of render functions can be provided.
 
 ```tsx
-import { InteractiveHilbert } from '@your-package/react-hilbert-curve';
+import { InteractiveHilbert } from '@netd-tud/hilby';
 
 const renderFunctions = [
     (prefix, long, netmask, config) => {
@@ -424,7 +423,7 @@ Alexander Männel (alexander.maennel@tu-dresden.de)
 
 ## Building this repo
 
-`yarn dev` to run the demo page locally 
-`yarn build` to build the library in `dist/`
-`yarn test` to build the library and run the demo with the new build
-`yarn preview` to create a production build of the demo 
+- `yarn dev` to run the demo page locally 
+- `yarn build` to build the library in `dist/`
+- `yarn test` to build the library and run the demo with the new build
+- `yarn preview` to create a production build of the demo 
