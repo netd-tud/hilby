@@ -1,7 +1,7 @@
 {
   "name": "@netd-tud/hilby",
   "private": false,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/netd-tud/hilby.git"
@@ -40,8 +40,8 @@
   "exports": {
     ".": {
       "import": {
-        "default":"./dist/hilby.js",
-        "types":  "./dist/main.d.ts"
+        "default": "./dist/hilby.js",
+        "types": "./dist/main.d.ts"
       }
     }
   },
