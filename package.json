@@ -34,12 +34,15 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
-  "main": "dist/hilby.js",
+  "main": "./dist/hilby.js",
   "module": "./dist/hilby.js",
-  "types": "dist/main.d.ts",
+  "types": "./dist/main.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/hilby.js"
+      "import": {
+        "default":"./dist/hilby.js",
+        "types":  "./dist/main.d.ts"
+      }
     }
   },
   "files": [
