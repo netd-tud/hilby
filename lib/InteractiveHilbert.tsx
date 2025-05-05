@@ -31,8 +31,8 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
         if (ref.current !== null) {
             const width = ref.current.offsetWidth;
             const height = ref.current.offsetHeight;
-            console.log(width, height);
-            console.log({x:-(50000) + width/2, y: -(50000) + height/2})
+            //console.log(width, height);
+            //console.log({x:-(50000) + width/2, y: -(50000) + height/2})
             setPan({x:-(50000) + width/2, y: -(50000) + height/2});
             setZoom(Math.min(height, width) * 0.000008);
             refresh({});

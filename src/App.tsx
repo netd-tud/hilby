@@ -30,9 +30,7 @@ function App() {
     const [noData, setNoData] = useState(false);
 
     let isLoading = true;
-    useEffect(() => {
-        console.log(noData);
-    }, [noData])
+
     useEffect(() => {
         const workerInstance = new Worker();
         setWorker(workerInstance);
