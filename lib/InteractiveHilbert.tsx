@@ -44,7 +44,7 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
     }, [props.topPrefix, props.renderFunctions, hilbertStore])
 
     const content = useMemo(() => {
-        return <AddressBlock prefix={props.topPrefix} split={false} topPrefix={props.topPrefix} parentSplit={() => { }} renderFunctions={props.renderFunctions} state={hilbertStore} />;
+        return <AddressBlock prefix={props.topPrefix} split={false} topPrefix={props.topPrefix} parentSplit={() => { }} renderFunctions={props.renderFunctions} state={hilbertStore} key={props.topPrefix} />;
     }, [props.topPrefix, props.renderFunctions])
 
     return (
