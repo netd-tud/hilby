@@ -51,7 +51,7 @@ import { InteractiveHilbert } from '@netd-tud/hilby';
 function App() {
     return (
         <InteractiveHilbert 
-            topPrefix="1.0.0.0/0"
+            topPrefix="1.0.0.0/8"
         />
     );
 }
@@ -70,7 +70,7 @@ const renderFunctions = [
 function App() {
     return (
         <InteractiveHilbert 
-            topPrefix="1.0.0.0/0"
+            topPrefix="1.0.0.0/8"
             renderFunctions={renderFunctions}
         />
     );
