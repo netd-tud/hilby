@@ -28,6 +28,8 @@ function App() {
     const [topPrefix, setTopPrefix] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
 
     const [noData, setNoData] = useState(false);
+    
+    const maxExpand = navigator.userAgent.toLowerCase().includes("firefox") ? 20 : 24;
 
     let isLoading = true;
 
@@ -253,7 +255,7 @@ function App() {
             </Group>
             <div className="hilbert-container" style={{ backgroundColor: "var(--mantine-color-gray-6)" }}>
                 {isLoading && <Loader color="oklch(0.55 0.1357 267.88)" />}
-                {!isLoading && <InteractiveHilbert topPrefix={topPrefix} renderFunctions={renderFunctions} hilbertStore={hilbertStore} />}
+                {!isLoading && <InteractiveHilbert topPrefix={topPrefix} renderFunctions={renderFunctions} hilbertStore={hilbertStore} maxExpand={maxExpand}/>}
             </div>
         </AppShell>
     )

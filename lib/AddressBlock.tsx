@@ -15,6 +15,7 @@ interface AddressBlockProps {
     parentSplit: (newSplit: boolean) => void;
     renderFunctions: RenderFunction[];
     state: HilbertStoreInstance;
+    maxExpand: number;
 }
 
 function AddressBlock(props: AddressBlockProps) {
@@ -34,8 +35,9 @@ function AddressBlock(props: AddressBlockProps) {
     const setHoverPrefix = props.state(state => state.setHoverPrefix);
 
     // memoize event handlers to prevent unnecessary re-renders
-    const onClick = useCallback(() => {
-        if (prefix_length < maxSubnetMask) {
+    const onClick = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        if (prefix_length < maxSubnetMask && prefix_length < topPrefix.subnetMask + props.maxExpand) {
             setSplit(true);
         }
     }, [prefix_length, setSplit]);
@@ -96,7 +98,7 @@ function AddressBlock(props: AddressBlockProps) {
         return (
             <div style={{ display: "flex", flexDirection: 'row', flexWrap: "wrap", height: percentage, width: percentage }} key={props.prefix} >
                 {order.map(e =>
-                    <AddressBlock prefix={e.prefix} split={false} topPrefix={props.topPrefix} parentSplit={setSplit} renderFunctions={props.renderFunctions} key={e.prefix} state={props.state} />
+                    <AddressBlock prefix={e.prefix} split={false} topPrefix={props.topPrefix} parentSplit={setSplit} renderFunctions={props.renderFunctions} key={e.prefix} state={props.state} maxExpand={props.maxExpand}/>
                 )}
             </div>
         )

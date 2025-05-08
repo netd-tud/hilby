@@ -32,6 +32,7 @@ export default function usePanZoom({
   onPan = noop,
   onPanEnd = noop,
   onZoom = noop,
+  containerSize = 100000,
 }: {
   enablePan?: boolean;
   enableZoom?: boolean;
@@ -52,6 +53,7 @@ export default function usePanZoom({
   onPan?: (touches: position[], transform: transform) => void;
   onPanEnd?: () => void;
   onZoom?: (transform: transform) => void;
+  containerSize?: number;
 } = {}) {
   const containerRef = useRef<HTMLElement | null>(null);
   const updateRef = useRef<number | null>(null);
@@ -124,8 +126,8 @@ export default function usePanZoom({
 
           const center = maybeCenter
             ? {
-                x: maybeCenter.x - 100000 / 2,
-                y: maybeCenter.y - 100000 / 2,
+                x: maybeCenter.x - containerSize / 2,
+                y: maybeCenter.y - containerSize / 2,
               }
             : { x: 0, y: 0 };
 
