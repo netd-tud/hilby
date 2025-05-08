@@ -1,12 +1,12 @@
 import './App.css'
 
 import { useCallback, useDeferredValue, useEffect, useState } from 'react'
-import { AppShell, Button, Group, Input, Loader, Switch, Text, Title, Image } from "@mantine/core";
-import { useDebouncedState } from '@mantine/hooks';
+import { AppShell, Button, Group, Input, Loader, Switch, Text, Title, Image, Modal, List, Kbd } from "@mantine/core";
+import { useDebouncedState, useDisclosure } from '@mantine/hooks';
 import { ip2long, long2ip } from 'netmask';
 import { useQuery } from "@tanstack/react-query";
 import { InteractiveHilbert, RenderFunction, useControlledHilbert, useEnableKeyBindings } from "../";
-import { FaGithub } from "react-icons/fa";
+import { FaBook, FaGithub, FaInfoCircle } from "react-icons/fa";
 
 import Worker from './parse-api-data?worker';
 import { response } from './response';
@@ -16,6 +16,8 @@ import { Address6 } from 'ip-address';
 import ripeLogo from "./ripe_stat_logo.png";
 
 function App() {
+
+    const [opened, { open, close }] = useDisclosure(false);
 
     const [ipv6, setipv6] = useState(false);
     const [worker, setWorker] = useState<Worker | null>(null);
@@ -170,11 +172,33 @@ function App() {
 
     return (
         <AppShell m="lg">
+            <Modal opened={opened} onClose={close} withCloseButton={false} centered size="auto">
+                <h3>How to use Hilby</h3>
+                <Text>
+                    The Hilbert Plot is completely interactive, allowing you to:
+                </Text>
+                <List>
+                    <List.Item>Pan by holding the left mouse button or dragging with a finger.</List.Item>
+                    <List.Item>Zoom in and out by using the scroll wheel or a two finger zoom gesture.</List.Item>
+                </List>
+                <Text mt={"md"} fw={700}>
+                    Controls:
+                </Text>
+                <List>
+                    <List.Item><Text fw={500} component='span'>Left-click (touch): </Text><Text component='span'>Expand the hovered prefix into its four more specific prefixes by increasing the netmask by 2.</Text></List.Item>
+                    <List.Item><Text fw={500} component='span'>Right-click (long touch): </Text><Text component='span'>Collapse the prefix and its siblings into its less specific prefix by decreasing the netmask by 2.</Text></List.Item>
+                    <List.Item><Text fw={500} component='span'><Kbd>E</Kbd>: </Text><Text component='span'>Set the hovered prefix as the root prefix, allowing for a more detailed inspection. (Max depth with expanding is 24)</Text></List.Item>
+                    <List.Item><Text fw={500} component='span'><Kbd>Q</Kbd>: </Text><Text component='span'>Set the root prefix to the less specific covering prefix of the current root prefix by decreasing the netmask of the root prefix by 2.</Text></List.Item>
+                </List>
+            </Modal>
+
             <Title order={1}>Hilby</Title>
             <Text style={{ "opacity": 0.7 }} fw={500} size="xl" mb={10}>Hilbert Interactive Prefix Plots</Text>
             <Group mb={20}>
                 <Button component="a" color='gray' leftSection={<FaGithub size={"22"} />} target="_blank" href="https://github.com/netd-tud/hilby">See on Github</Button>
-                <Button color='gray' component='a' target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">Documentation</Button>
+                <Button color='gray' component='a' leftSection={<FaBook size={"22"} />} target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">Documentation</Button>
+                <Button color='gray' onClick={open} leftSection={<FaInfoCircle size={"22"} />}>How to use</Button>
+
                 <Switch onChange={(e) => {
                     setipv6(e.currentTarget.checked);
                     setUsedData(null);
