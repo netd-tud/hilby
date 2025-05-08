@@ -241,9 +241,9 @@ function App() {
                     }}>
                     Show all /10s
                 </Button>}
-                <Text> {result.isFetching ? `Fetching data from RIPEStat for AS${selectedAS}` : ""}</Text>
-                <Group ml={"auto"}>
-                    <Text ms={20}>Data used in example provided by </Text>
+                <Text> {result.isFetching ? `Fetching data...` : ""}</Text>
+                <Group ml={"auto"} gap={0}>
+                    <Text>Data used in example provided by </Text>
                     <a href="https://stat.ripe.net/" target='_blank'>
                         <Image h="60" src={ripeLogo} w="auto"
                             fit="contain"
