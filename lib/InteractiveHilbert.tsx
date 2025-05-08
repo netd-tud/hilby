@@ -37,7 +37,7 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
             //console.log(width, height);
             //console.log({x:-(50000) + width/2, y: -(50000) + height/2})
             setPan({x:-(size/2) + width/2, y: -(size/2) + height/2});
-            setZoom((800 / size));
+            setZoom(Math.min(height, width) * (0.8 / size));
             refresh({});
         }
     }, [ref.current]);
