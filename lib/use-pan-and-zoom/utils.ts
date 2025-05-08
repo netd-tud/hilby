@@ -16,7 +16,6 @@ export function getPositionOnElement(
 ): position {
   const positionOnElement = { ...position };
   while (element) {
-    console.log(element)
     positionOnElement.x -= element.offsetLeft;
     positionOnElement.y -= element.offsetTop;
     element = <HTMLElement | undefined>element.offsetParent;
