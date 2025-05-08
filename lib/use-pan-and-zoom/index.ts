@@ -65,6 +65,7 @@ export default function usePanZoom({
     prevZoom: number;
     center: position;
     transform: transform;
+    nEvents: number;
   }>({
     wasPanning: false,
     isPanning: false,
@@ -72,6 +73,7 @@ export default function usePanZoom({
     prevZoom: 1,
     center: { x: 0, y: 0 },
     transform: { ...initialPan, zoom: initialZoom },
+    nEvents: 0
   });
 
   const clampX = useMemo(() => clamp(minX, maxX), [minX, maxX]);
@@ -163,7 +165,7 @@ export default function usePanZoom({
       const state = getState();
       if (state.isPanning) {
         state.wasPanning = true;
-
+        state.nEvents += 1;
         const prevPointers = state.prevPointers;
         state.prevPointers = pointers;
         setState(state);
@@ -194,9 +196,6 @@ export default function usePanZoom({
           x: pointers[0].x,
           y: pointers[0].y,
         });
-        console.log(pointers)
-        const newCenter = l === 2 ? {x: pointers[0].x + (pointers[1].x - pointers[0].x)/2, y:  pointers[0].y + (pointers[1].y - pointers[0].y)/2} : undefined
-        console.log(newCenter)
         setZoom((zoom) => zoom * scale, pointerPosition);
 
         forceUpdate();
@@ -218,8 +217,10 @@ export default function usePanZoom({
     (event: React.MouseEvent) => {
       const state = getState();
       if (preventClickOnPan && state.wasPanning) {
-        setState((state) => ({ ...state, wasPanning: false }));
-        event.stopPropagation();
+        setState((state) => ({ ...state, wasPanning: false, nEvents: 0}));
+        if (state.nEvents > 5) {
+          event.stopPropagation();
+        }
       }
     },
     [preventClickOnPan, getState, setState]
