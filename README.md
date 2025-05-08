@@ -438,3 +438,7 @@ Alexander Männel (alexander.maennel@tu-dresden.de)
 - `yarn build` to build the library in `dist/`
 - `yarn test` to build the library and run the demo with the new build
 - `yarn preview` to create a production build of the demo 
+
+## Acknowledgements
+- [wouterraateland/use-pan-and-zoom](https://github.com/wouterraateland/use-pan-and-zoom): Pan and Zoom Functionality (see lib/use-pan-and-zoom)
+- [measurement-factory/ipv4-heatmap](https://github.com/measurement-factory/ipv4-heatmap): The original C implementation to create Hilbert Curves; source for the hilbert implementation in this project.

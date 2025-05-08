@@ -1,7 +1,6 @@
 import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { AddressBlock } from "./AddressBlock";
-//@ts-ignore
-import usePanZoom from "use-pan-and-zoom";
+import usePanZoom from "./use-pan-and-zoom";
 import { HilbertStoreInstance, stateCreator } from "./useControlledHilbert";
 import { create } from "zustand";
 
