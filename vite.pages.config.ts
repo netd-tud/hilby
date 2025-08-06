@@ -20,5 +20,5 @@ export default defineConfig({
   optimizeDeps: {
     exclude: []
   },
-  base: "/hilby/"
+  base: "/"
 })
