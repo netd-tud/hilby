@@ -15,6 +15,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --switch-bg: oklch(0.55 0.1357 267.88) !important;
+
 }
 
 code {

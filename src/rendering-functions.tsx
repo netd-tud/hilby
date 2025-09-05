@@ -1,13 +1,14 @@
 import { RenderFunction } from "../";
+import { calculatePrefixColor, zeroColor } from "./constants";
 
 const coloring: RenderFunction = (_prefix: string, _long: bigint, _netmask: number, config) => {
     const normalizedValue = config.properties["subnets"] || 0;
     let color = "";
 
     if (normalizedValue === 0) {
-        color = "oklch(0.25 0.0543 244.06)";
+        color = zeroColor;
     } else {
-        color = `oklch(${normalizedValue*0.6 +0.4} 0.1357 267.88)`
+        color = calculatePrefixColor(normalizedValue);
     }
 
     config.style.backgroundColor = color;

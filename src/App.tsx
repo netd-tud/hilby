@@ -1,7 +1,7 @@
 import './App.css'
 
 import { useCallback, useDeferredValue, useEffect, useState } from 'react'
-import { AppShell, Button, Group, Input, Loader, Switch, Text, Title, Image, Modal, List, Kbd } from "@mantine/core";
+import { AppShell, Button, Container, Divider, Group, Image, Input, Loader, Paper, Switch, Text, Title, Stack } from "@mantine/core";
 import { useDebouncedState, useDisclosure } from '@mantine/hooks';
 import { ip2long, long2ip } from 'netmask';
 import { useQuery } from "@tanstack/react-query";
@@ -9,11 +9,16 @@ import { InteractiveHilbert, RenderFunction, useControlledHilbert, useEnableKeyB
 import { FaBook, FaGithub, FaInfoCircle } from "react-icons/fa";
 
 import Worker from './parse-api-data?worker';
-import { response } from './response';
+
 import { newAdd, coloring, getPercentage } from './rendering-functions';
 import { Address6 } from 'ip-address';
 
 import ripeLogo from "./ripe_stat_logo.png";
+import routeviewsLogo from "./routeviews_logo.png";
+
+import { baseColor } from './constants';
+import Legend from './Legend';
+import TutorialModal from './TutorialModal';
 
 function App() {
 
@@ -26,11 +31,14 @@ function App() {
     const [selectedAS, setSelectedAS] = useDebouncedState("16509", 1000);
     const deferredUsedData = useDeferredValue(usedData);
 
-    const [hilbertStore, prefixManipulation, _useHoveredPrefix] = useControlledHilbert();
+    const [hilbertStore, prefixManipulation, zoomManipulation, _useHoveredPrefix] = useControlledHilbert();
     const [topPrefix, setTopPrefix] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
 
     const [noData, setNoData] = useState(false);
-    
+    const [parsing, setParsing] = useState(false);
+    const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
+    const [zoomTarget, setZoomTarget] = useState<string>("");
+    const [zoomStatus, setZoomStatus] = useState<boolean>(true);
     const maxExpand = navigator.userAgent.toLowerCase().includes("firefox") ? 20 : 24;
 
     let isLoading = true;
@@ -40,6 +48,7 @@ function App() {
         setWorker(workerInstance);
 
         workerInstance.onmessage = function (e) {
+            setParsing(false);
             if (e.data.ipv6) {
                 const collection: Address6[] = [];
                 if (e.data.data.length === 0) {
@@ -85,29 +94,30 @@ function App() {
     }
 
     const getAnnouncedPrefixes = useCallback(async (as: string): Promise<string[]> => {
-        // const response = await fetch(`https://api.routeviews.org/guest/asn/${as}?af=4`, {           
-        //   redirect: 'follow',
-        // });
 
-        // console.log(await response.text())
-        // return await response.json();
+        if (source === "routeviews") {
+            const response = await fetch(`https://api.routeviews.org/guest/asn/${as}`);
+            return await response.json();
+        }
+        if (source === "ripe") {
+            const response = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS${as}`)
+            const parsedResponse = await response.json();
+    
+    
+            return parsedResponse["data"]["prefixes"].map((v: { prefix: string }) => v["prefix"]);
+        }
+        return [];
 
-        const response = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS${as}`)
-        const parsedResponse = await response.json();
-
-
-        return parsedResponse["data"]["prefixes"].map((v: { prefix: string }) => v["prefix"]);
-    }, [])
+    }, [source])
 
     const result = useQuery({
-        queryKey: [selectedAS],
+        queryKey: [selectedAS, source],
         queryFn: () => getAnnouncedPrefixes(selectedAS),
-        initialData: () => response,
     })
 
     useEffect(() => {
         if (!result.isSuccess) return;
-
+        setParsing(true);
         worker?.postMessage({ ipv6: ipv6, data: result.data });
     }, [result.data, result.isSuccess, ipv6, worker]);
 
@@ -169,119 +179,231 @@ function App() {
 
     const renderFunctions: RenderFunction[] = [newAdd, colorBasedOnDensity, coloring, getPercentage];
 
+    let parsingText = "";
+
+    if (result.isFetching) {
+        parsingText = "Fetching new data...";
+    }
+    if (parsing) {
+        parsingText = "Parsing new data...";
+    }
+
 
     return (
-        <AppShell m="lg">
-            <Modal opened={opened} onClose={close} withCloseButton={false} centered size="auto">
-                <h3>How to use Hilby</h3>
-                <Text>
-                    The Hilbert Plot is completely interactive, allowing you to:
-                </Text>
-                <List>
-                    <List.Item>Pan by holding the left mouse button or dragging with a finger.</List.Item>
-                    <List.Item>Zoom in and out by using the scroll wheel or a two finger zoom gesture.</List.Item>
-                </List>
-                <Text mt={"md"} fw={700}>
-                    Controls:
-                </Text>
-                <List>
-                    <List.Item><Text fw={500} component='span'>Left-click (touch): </Text><Text component='span'>Expand the hovered prefix into its four more specific prefixes by increasing the netmask by 2.</Text></List.Item>
-                    <List.Item><Text fw={500} component='span'>Right-click (long touch): </Text><Text component='span'>Collapse the prefix and its siblings into its less specific prefix by decreasing the netmask by 2.</Text></List.Item>
-                    <List.Item><Text fw={500} component='span'><Kbd>E</Kbd>: </Text><Text component='span'>Set the hovered prefix as the root prefix, allowing for a more detailed inspection. (Max depth with expanding is 24)</Text></List.Item>
-                    <List.Item><Text fw={500} component='span'><Kbd>Q</Kbd>: </Text><Text component='span'>Set the root prefix to the less specific covering prefix of the current root prefix by decreasing the netmask of the root prefix by 2.</Text></List.Item>
-                </List>
-            </Modal>
+        <>
+            <AppShell >
+                {/* Header Section */}
+                    <Container size="xl" py="md">
+                        <Group justify="space-between">
+                            <div>
+                                <Title order={1}>Hilby</Title>
+                                <Text c="dimmed" size="lg">Hilbert Interactive Prefix Plots</Text>
+                            </div>
+                              <Group justify="center">
+                            <Group mr={"xl"}>
+                                <Text size="md" mr={-15}>Live Data provided by</Text>
+                                <a target="_blank" href="https://stat.ripe.net/">
+                                    <Image src={ripeLogo} h={30} />
+                                </a>
+                                <a target="_blank" href="https://www.routeviews.org/routeviews/">
+                                    <Image src={routeviewsLogo} h={30} />
+                                </a>
+                                
+                            </Group>
+                           
+                            <Group>
+                                <Button.Group mr={"lg"}>
+                                    <Button component="a" variant="light" leftSection={<FaGithub />} 
+                                            target="_blank" href="https://github.com/netd-tud/hilby">
+                                        GitHub
+                                    </Button>
+                                    <Button variant="light" leftSection={<FaBook />}  component='a'
+                                            target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">
+                                        Docs
+                                    </Button>
+                                    <Button variant="light" onClick={open} leftSection={<FaInfoCircle />}>
+                                        Shortcuts
+                                    </Button>
+                                </Button.Group>
+                            </Group>
+                                                </Group>
+                        </Group>
 
-            <Title order={1}>Hilby</Title>
-            <Text style={{ "opacity": 0.7 }} fw={500} size="xl" mb={10}>Hilbert Interactive Prefix Plots</Text>
-            <Group mb={20}>
-                <Button component="a" color='gray' leftSection={<FaGithub size={"22"} />} target="_blank" href="https://github.com/netd-tud/hilby">See on Github</Button>
-                <Button color='gray' component='a' leftSection={<FaBook size={"22"} />} target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">Documentation</Button>
-                <Button color='gray' onClick={open} leftSection={<FaInfoCircle size={"22"} />}>How to use</Button>
+                    </Container>
+                  
+                <AppShell.Main>
+                    {/* Control Panel */}
+                    <Container size="xl" py="md">
+                        <Paper shadow="sm" p="md" mb="md">
+                            <Stack gap="md">
+                                <Group justify='space-between'>
+                                    <Group>
+                                        <Group>
+                                            <Text fw={700}>AS Number:</Text>
+                                            <Input
+                                                defaultValue={selectedAS}
+                                                style={{ fontWeight: "700" }}
+                                                fs={"1rem"}
+                                                size='md'
+                                                disabled={parsingText !== ""}
+                                                onChange={(event) => setSelectedAS(event.currentTarget.value)}
+                                            ></Input>
+                                        </Group>
+                                        <Group>
+                                            <Text fw={700}>Protocol:</Text>
+                                            <Switch onChange={(e) => {
+                                                setipv6(e.currentTarget.checked);
+                                                setUsedData(null);
+                                                setTopPrefix(e.currentTarget.checked ? "2000::/4" : "0.0.0.0/0");
+                                            }
+                                            }
+                                                disabled={isLoading}
+                                                checked={ipv6}
+                                                onLabel="IPv6" offLabel="IPv4"
+                                                size='lg'
+                                                color={baseColor}
+                                                styles={{
+                                                    track: {
+                                                        backgroundColor: "oklch(0.55 0.1357 267.88)",
+                                                        borderColor: "oklch(0.55 0.1357 267.88)",
+                                                        color: "white",
+                                                        '&[data-checked]': {
+                                                            backgroundColor: "oklch(0.55 0.1357 267.88)",
+                                                            borderColor: "oklch(0.55 0.1357 267.88)",
+                                                        }
+                                                    }
+                                                }}
 
-                <Switch onChange={(e) => {
-                    setipv6(e.currentTarget.checked);
-                    setUsedData(null);
-                    setTopPrefix(e.currentTarget.checked ? "2000::/4" : "0.0.0.0/0");
-                }
-                }
-                    disabled={isLoading}
-                    checked={ipv6}
-                    onLabel="IPv6" offLabel="IPv4"
-                    size='lg'
-                    color="oklch(0.55 0.1357 267.88)"
-                />
-                
-            </Group>
+                                            />
+                                        </Group>
+                                        <Group>
+                                            <Text fw={700}>Data Provider:</Text>
+                                            <Switch onChange={(e) => {
+                                                setSource(source === "routeviews" ? "ripe" : "routeviews")
+                                                }
+                                            }
+                                                disabled={isLoading}
+                                                checked={source === "ripe"}
+                                                onLabel="RIPEstat RIS" offLabel="Routeviews"
+                                                size='lg'
+                                                color={baseColor}
+                                                styles={{
+                                                    track: {
+                                                        backgroundColor: "oklch(0.55 0.1357 267.88)",
+                                                        borderColor: "oklch(0.55 0.1357 267.88)",
+                                                        color: "white",
+                                                        '&[data-checked]': {
+                                                            backgroundColor: "oklch(0.55 0.1357 267.88)",
+                                                            borderColor: "oklch(0.55 0.1357 267.88)",
+                                                        }
+                                                    }
+                                                }}
 
-            <Group mb={20} >
-                <Text fw={700} size='lg'>Announced prefixes in {topPrefix} from AS</Text>
-                {/*AS{oldAS} <Text>Enter AS Number:</Text> */}
-                <Input
-                    defaultValue={selectedAS}
-                    style={{ fontWeight: "700" }}
-                    fs={"1rem"}
-                    size='md'
-                    onChange={(event) => setSelectedAS(event.currentTarget.value)}
-                ></Input>
-                {!ipv6 && <Button color="oklch(0.55 0.1357 267.88)"
-                    size='md'
-                    onClick={() => {
-                        const base = ip2long("0.0.0.0");
-                        const prefixes: string[] = [];
+                                            />
+                                        </Group>
+                                        
+                                    </Group>
+                                     <Group>
+                                        {/* Action buttons */}
+                                        {!ipv6 && <Button color={baseColor}
+                                            size='md'
+                                            onClick={() => {
+                                                const base = ip2long("0.0.0.0");
+                                                const prefixes: string[] = [];
 
-                        for (let i = 0; i < 8; i += 2) {
-                            let itr = base;
-                            const ctr = (1 << (32 - i));
-                            for (let j = 0; j < (1 << (i)) * 0.875; j++) {
-                                const prefix = long2ip(itr) + "/" + i.toString();
-                                //prefixManipulation.setPrefixSplit(prefix, true);
-                                prefixes.push(prefix)
-                                itr += ctr;
-                            }
-                        }
+                                                for (let i = 0; i < 8; i += 2) {
+                                                    let itr = base;
+                                                    const ctr = (1 << (32 - i));
+                                                    for (let j = 0; j < (1 << (i)) * 0.875; j++) {
+                                                        const prefix = long2ip(itr) + "/" + i.toString();
+                                                        //prefixManipulation.setPrefixSplit(prefix, true);
+                                                        prefixes.push(prefix)
+                                                        itr += ctr;
+                                                    }
+                                                }
 
-                        prefixManipulation.setPrefixSplit(prefixes, true);
+                                                prefixManipulation.setPrefixSplit(prefixes, true);
 
-                    }}>
-                    Show all /8s
-                </Button>}
-                {ipv6 && <Button color="oklch(0.55 0.1357 267.88)"
-                    size='md'
-                    onClick={() => {
-                        const base = new Address6(topPrefix).bigInt();
-                        const prefixes: string[] = [];
-                        for (let i = 4n; i < 10n; i += 2n) {
-                            let itr = base;
-                            const ctr = (1n << (128n - i));
-                            for (let j = 0n; j < (1n << (i - 4n)); j++) {
-                                const prefix = Address6.fromBigInt(itr).correctForm() + "/" + i.toString();
-                                //prefixManipulation.setPrefixSplit(prefix, true);
-                                prefixes.push(prefix)
-                                itr += ctr;
-                            }
-                        }
+                                            }}>
+                                            Expand all /8s
+                                        </Button>}
+                                        {ipv6 && <Button color={baseColor}
+                                            size='md'
+                                            onClick={() => {
+                                                const base = new Address6(topPrefix).bigInt();
+                                                const prefixes: string[] = [];
+                                                for (let i = 4n; i < 10n; i += 2n) {
+                                                    let itr = base;
+                                                    const ctr = (1n << (128n - i));
+                                                    for (let j = 0n; j < (1n << (i - 4n)); j++) {
+                                                        const prefix = Address6.fromBigInt(itr).correctForm() + "/" + i.toString();
+                                                        //prefixManipulation.setPrefixSplit(prefix, true);
+                                                        prefixes.push(prefix)
+                                                        itr += ctr;
+                                                    }
+                                                }
 
-                        prefixManipulation.setPrefixSplit(prefixes, true);
+                                                prefixManipulation.setPrefixSplit(prefixes, true);
 
-                    }}>
-                    Show all /10s
-                </Button>}
-                <Text> {result.isFetching ? `Fetching data...` : ""}</Text>
-                <Group ml={"auto"} gap={0}>
-                    <Text>Data used in example provided by </Text>
-                    <a href="https://stat.ripe.net/" target='_blank'>
-                        <Image h="60" src={ripeLogo} w="auto"
-                            fit="contain"
-                        />
-                    </a>
-                </Group>
-            </Group>
-            <div className="hilbert-container" style={{ backgroundColor: "var(--mantine-color-gray-6)" }}>
-                {isLoading && <Loader color="oklch(0.55 0.1357 267.88)" />}
-                {!isLoading && <InteractiveHilbert topPrefix={topPrefix} renderFunctions={renderFunctions} hilbertStore={hilbertStore} maxExpand={maxExpand}/>}
-            </div>
-        </AppShell>
+                                            }}>
+                                            Expand all /10s
+                                        </Button>}
+                                        <Button color={baseColor} size='md' onClick={() => {
+                                            zoomManipulation.resetZoom();
+                                        }}>
+                                            Reset Zoom
+                                        </Button>
+                                    </Group>
+                                </Group>
+                                
+                                <Divider />
+                                
+                                <Group justify="space-between">
+                                    <Group>
+                                        <Legend />
+                                        <Group>
+                                            <Text> Search for prefix:</Text>
+                                            <Input value={zoomTarget} onChange={(e) => {setZoomTarget(e.currentTarget.value); setZoomStatus(true);}} onKeyUp={(e) => { 
+                                                if (e.key === "Enter") { 
+                                                    const result = zoomManipulation.zoomToPrefix(zoomTarget);
+                                                    setZoomStatus(result);
+                                                }
+                                                }} 
+                                                error={!zoomStatus}></Input>
+                                        </Group>
+                                    </Group>
+                                    <Group>
+                                        <Text> {parsingText}</Text>
+                                    </Group>
+                                </Group>
+                            </Stack>
+                        </Paper>
+                    </Container>
+
+                    {/* Main Hilbert Plot */}
+                    <Container size="xl" style={{ flexGrow: 1 } } mb={"md"}>
+                        <div className="hilbert-container">
+                            {/* Hilbert plot content */}
+                            {isLoading && <Loader color={baseColor} />}
+                            {!isLoading && <InteractiveHilbert topPrefix={topPrefix} renderFunctions={renderFunctions} hilbertStore={hilbertStore} maxExpand={maxExpand}/>}
+                        </div>
+                    </Container>
+                </AppShell.Main>
+
+                 <Container size="xl" py="sm">
+                    <Group justify='center' mb="sm">
+                       <Group>
+                            <Text size="md">Built at <a style={{color:baseColor, textDecorationLine: "none", fontWeight:700}} href="https://netd.inf.tu-dresden.de/">TUD NETD</a></Text>
+                            </Group>
+                            <Text>|</Text>
+                            <Group>
+                                <Text size="md">Presented at <a style={{color:baseColor, textDecorationLine: "none", fontWeight:700}} href="https://doi.org/10.1145/3744969.3748402">SIGCOMM</a></Text>
+                            </Group>
+                            </Group>
+                    </Container>
+            </AppShell>
+            <TutorialModal opened={opened} close={close}/>
+        </>
     )
 }
 
