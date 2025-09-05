@@ -6,6 +6,7 @@ import { Address4, Address6 } from "ip-address";
 import { bounding_box } from "./hilbert";
 import { RenderFunction, SubnetConfig } from "./InteractiveHilbert";
 import { HilbertStoreInstance } from "./useControlledHilbert";
+import { useStoreSubscription } from './helpers';
 
 
 interface AddressBlockProps {
@@ -19,7 +20,7 @@ interface AddressBlockProps {
 }
 
 function AddressBlock(props: AddressBlockProps) {
-    const prefixState = props.state(state => state.prefixState[props.prefix]);
+    const prefixState = useStoreSubscription(props.state, (state) => state.prefixState[props.prefix]);
     const [split, setSplit] = useState(prefixState?.split ?? false);
 
     const isIPv6 = props.prefix.includes(":");
@@ -31,8 +32,8 @@ function AddressBlock(props: AddressBlockProps) {
     //console.log(props.prefix, block, block.subnetMask, isIPv6)
     const prefix_length = block.subnetMask;
 
-    const setPrefixSplit = props.state(state => state.setPrefixSplit);
-    const setHoverPrefix = props.state(state => state.setHoverPrefix);
+    const setPrefixSplit = props.state.getState().setPrefixSplit;
+    const setHoverPrefix = props.state.getState().setHoverPrefix;
 
     // memoize event handlers to prevent unnecessary re-renders
     const onClick = useCallback((e: React.MouseEvent) => {
@@ -98,7 +99,12 @@ function AddressBlock(props: AddressBlockProps) {
         return (
             <div style={{ display: "flex", flexDirection: 'row', flexWrap: "wrap", height: percentage, width: percentage }} key={props.prefix} >
                 {order.map(e =>
-                    <AddressBlock prefix={e.prefix} split={false} topPrefix={props.topPrefix} parentSplit={setSplit} renderFunctions={props.renderFunctions} key={e.prefix} state={props.state} maxExpand={props.maxExpand}/>
+                    <AddressBlock prefix={e.prefix} split={false} topPrefix={props.topPrefix} 
+                        parentSplit={(split: boolean) => {
+                            setSplit(split);
+                            setPrefixSplit(props.prefix, null);}
+                        } 
+                        renderFunctions={props.renderFunctions} key={e.prefix} state={props.state} maxExpand={props.maxExpand}/>
                 )}
             </div>
         )

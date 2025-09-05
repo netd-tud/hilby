@@ -1,8 +1,10 @@
-import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddressBlock } from "./AddressBlock";
 import usePanZoom from "./use-pan-and-zoom";
 import { HilbertStoreInstance, stateCreator } from "./useControlledHilbert";
 import { create } from "zustand";
+import { bounding_box } from "./hilbert";
+import { Address4, Address6 } from "ip-address";
 
 type SubnetConfig = {
     style: CSSProperties;
@@ -23,23 +25,123 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
     const localMaxExpand = props.maxExpand ?? 24;
     const size = 100000 * 2**((localMaxExpand - 24)/2);
     const ref = useRef<HTMLDivElement>(null);
-    const { transform, setContainer, panZoomHandlers,setPan, setZoom} = usePanZoom({ initialZoom: (800 / size), initialPan: { x: -(size/2 - 500 / 2), y: -(size/2 - 500 / 2) }, zoomSensitivity: 0.005, containerSize: size});
+    const { transform, setContainer, panZoomHandlers, setPanAndZoom} = usePanZoom({ initialZoom: (800 / size), initialPan: { x: -(size/2 - 650 / 2), y: -(size/2 - 500 / 2) }, zoomSensitivity: 0.005, containerSize: size});
     const [, refresh] = useState({});
     const hilbertStore = props.hilbertStore === undefined ? create(stateCreator) : props.hilbertStore;
 
-    const resetPrefixes = hilbertStore(state => state.clearAllPrefixes)
-    
+    const resetPrefixes = hilbertStore.getState().clearAllPrefixes;
+    const setResetZoom = hilbertStore.getState().setResetZoom
+    const setZoomToPrefix = hilbertStore.getState().setZoomToPrefix
+    const setPrefixSplit = hilbertStore.getState().setPrefixSplit;
 
-    useEffect(() => {
+
+    const resetZoom = useCallback(() => {
+        //console.log("reset")
         if (ref.current !== null) {
             const width = ref.current.offsetWidth;
             const height = ref.current.offsetHeight;
             //console.log(width, height);
-            //console.log({x:-(50000) + width/2, y: -(50000) + height/2})
-            setPan({x:-(size/2) + width/2, y: -(size/2) + height/2});
-            setZoom(Math.min(height, width) * (0.8 / size));
+            //console.log({x:-(size/2) + width/2, y: -(size/2) + height/2})
+            //setPan({x:-(size/2) + width/2, y: -(size/2) + height/2});
+            //setZoom(Math.min(height, width) * (0.8 / size));
+            setPanAndZoom({x:-(size/2) + width/2, y: -(size/2) + height/2}, Math.min(height, width) * (0.8 / size));
             refresh({});
+            //console.log("actual", Math.min(height, width) * (0.8 / size))
         }
+    },[setPanAndZoom, refresh]);
+
+    const zoomToPrefix = useCallback((prefix: string) => {
+
+        if (ref.current === null) return false;
+
+        const isTargetIPv6 = prefix.includes(":")
+        const isTopPrefixIPv6 = props.topPrefix.includes(":")
+
+        if (isTargetIPv6 != isTopPrefixIPv6) return false; 
+
+        const Address = isTargetIPv6 ? Address6 : Address4
+        const subnetSize = isTargetIPv6 ? 128 : 32;
+
+
+        let targetAddress, topPrefixAddress;
+
+        try {
+            targetAddress = new Address(prefix)
+            topPrefixAddress = new Address(props.topPrefix);
+
+            const cleanedAddress =  Address.fromBigInt(targetAddress.bigInt() & (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFn << BigInt(subnetSize - targetAddress.subnetMask)))
+            const correctedCIDR = cleanedAddress.correctForm() + `/${targetAddress.subnetMask}`;
+
+            targetAddress = new Address(correctedCIDR);
+            
+        } catch (error) {
+            return false;
+        }
+
+        if (targetAddress.subnetMask > localMaxExpand) return false;
+
+        const diffToTopPrefix = targetAddress.subnetMask - topPrefixAddress.subnetMask; 
+
+        const prefixesToSplit: string[] = [];
+
+        for (let i = topPrefixAddress.subnetMask; i < targetAddress.subnetMask; i = i + 2) {
+            const supernet = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFn << BigInt(subnetSize - i) & targetAddress.bigInt();
+            const supernetParsed = Address.fromBigInt(supernet);
+            prefixesToSplit.push(supernetParsed.correctForm() + "/"+ i.toString())
+        }
+
+        setPrefixSplit(prefixesToSplit, true);
+
+        const bbox = bounding_box(targetAddress.bigInt(), BigInt(targetAddress.subnetMask), topPrefixAddress);
+        const bboxTopPrefix = bounding_box(topPrefixAddress.bigInt(), BigInt(topPrefixAddress.subnetMask), topPrefixAddress);
+
+        const width = ref.current.offsetWidth;
+        const height = ref.current.offsetHeight;
+
+
+        const relativePositionOfSubnetToCenter = {
+            // calculate middle of target bbox: ((bbox.xmax - bbox.xmin)/2 + bbox.xmin)
+            // calculate location relative within topPrefix: ((bbox.xmax - bbox.xmin)/2 + bbox.xmin) / bboxTopPrefix.xmax
+            // invert to match the coordinate system: 1 - ((bbox.xmax - bbox.xmin)/2 + bbox.xmin) / bboxTopPrefix.xmax
+            // change scale to be 1 at center position: result * 2 - 1
+            x: (1- ((bbox.xmax - bbox.xmin)/2 + bbox.xmin) / bboxTopPrefix.xmax)*2- 1,
+            y: (1-((bbox.ymax - bbox.ymin)/2 + bbox.ymin) / bboxTopPrefix.ymax)*2-1
+
+        };
+
+        // Center the zoom and scale to the targeted prefix size
+        const centerZoomValue = Math.min(height, width) * (0.8 / size);
+        const newZoomValue = centerZoomValue * 2**(diffToTopPrefix/2);
+
+        // center position for current screen size
+        const newPos = {
+             x: -(size/2) + width/2,
+             y: -(size/2) + height/2
+        };
+        
+        // The size in pixel of the topPrefix is zoomscale * start size 
+        const fullSize = newZoomValue * size;
+
+        
+        newPos.x += fullSize/2 * relativePositionOfSubnetToCenter.x;
+        newPos.y += fullSize/2 * relativePositionOfSubnetToCenter.y;
+
+        setPanAndZoom(
+            newPos,
+            newZoomValue
+        );
+        refresh({});
+
+        return true;
+    },[setPrefixSplit, localMaxExpand, refresh, setPanAndZoom])
+
+    useEffect(() => {
+        setResetZoom(resetZoom);
+        setZoomToPrefix(zoomToPrefix);
+    }, [zoomToPrefix,resetZoom, props.hilbertStore])
+
+    useEffect(() => {
+       resetZoom();
     }, [ref.current]);
 
     useEffect(() => {

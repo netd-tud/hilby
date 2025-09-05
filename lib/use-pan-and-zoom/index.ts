@@ -147,6 +147,14 @@ export default function usePanZoom({
     [clampX, clampY, clampZoom, setTransform]
   );
 
+  const setPanAndZoom = useCallback(
+    (position: position, zoom: number | ((current: number) => number)) => {
+      setZoom(zoom, position);
+      setPan(position);
+      },
+    [setPan, setZoom]
+  );
+
   const startPanZoom = useCallback(
     (pointers: position[]) => {
       if (enablePan) {
@@ -382,6 +390,7 @@ export default function usePanZoom({
     zoom: state.transform.zoom,
     setPan,
     setZoom,
+    setPanAndZoom,
     panZoomHandlers: panOnDrag
       ? {
           onTouchStart,

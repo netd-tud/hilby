@@ -1,5 +1,7 @@
-import { create, StateCreator, StoreApi, UseBoundStore } from "zustand";
+import { createStore, StateCreator, StoreApi, UseBoundStore } from "zustand";
 import { SubnetConfig } from "./InteractiveHilbert";
+import { useState } from "react";
+import { useStoreSubscription } from "./helpers";
 
 type HoverPrefix = {
     prefix: string;
@@ -13,11 +15,17 @@ type SubnetSettings = {
 }
 
 type HilbertState = {
+    resetZoom: () => void;
+    zoomToPrefix: (prefix: string) => boolean;
     prefixState: Record<string, SubnetSettings>;
     hoverPrefix: HoverPrefix;
+    uuid: string
 }
 
 type HilbertActions = {
+    setResetZoom: (resetZoom: () => void) => void;
+    setZoomToPrefix: (zoomToPrefix: (prefix: string) => boolean) => void;
+
     setPrefixConfig: (prefix: string, state: Partial<SubnetConfig>, merge?: boolean) => void;
     setPrefixSplit: (prefix: string | string[], split: boolean | null) => void;
     clearAllPrefixes: () => void;
@@ -34,11 +42,20 @@ type PrefixStateManipulation = {
     setPrefixSplit: (prefix: string | string[], split: boolean | null) => void;
 }
 
+type ZoomManipulation = {
+    zoomToPrefix: (prefix: string) => boolean;
+    resetZoom: () => void;
+}
+
 type HilbertStore = HilbertState & HilbertActions;
 
 type HilbertStoreInstance = UseBoundStore<StoreApi<HilbertStore>>;
 
 const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
+    uuid: self.crypto.randomUUID(),
+    resetZoom: () => { console.log("defautl")},
+    zoomToPrefix: (_prefix) => { console.log("defautl"); return true;},
+
     prefixState: {},
     hoverPrefix: {
         prefix: "",
@@ -64,7 +81,6 @@ const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
         } as HilbertStore;
     }),
     setPrefixSplit: (prefix, split) => set((state) => {
-
         let prefixList = [];
         if (!(prefix instanceof Array)) {
             prefixList = [prefix]
@@ -78,10 +94,9 @@ const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
                 ...state.prefixState
             }
         }
-        
         for (const it_prefix of prefixList) {
             const current = state.prefixState[it_prefix];
-
+            
             newState.prefixState[it_prefix] = {...current, split: split};
         }
 
@@ -112,24 +127,37 @@ const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
                 config: config
             }
         }
+    }),
+    setResetZoom: (resetZoomF) => set({
+      
+            resetZoom: resetZoomF
+    
+    }),
+    setZoomToPrefix: (setZoomToPrefixF) => set({
+      
+            zoomToPrefix: setZoomToPrefixF
+    
     })
 })
 
 
 const useControlledHilbert = () => {
+    const [useHilbertStore, _] = useState(createStore<HilbertStore>(stateCreator));
 
-    const useHilbertStore = create<HilbertStore>(stateCreator);
+    const setPrefixConfig = useHilbertStore.getState().setPrefixConfig;
+    const clearPrefixState = useHilbertStore.getState().clearPrefix;
+    const clearAllPrefixes = useHilbertStore.getState().clearAllPrefixes;
+    const setPrefixSplit = useHilbertStore.getState().setPrefixSplit;
+    const zoomToPrefix = useHilbertStore.getState().zoomToPrefix;
+    const resetZoom = useHilbertStore.getState().resetZoom;
 
-    const setPrefixConfig = useHilbertStore((state) => state.setPrefixConfig);
-    const clearPrefixState = useHilbertStore((state) => state.clearPrefix);
-    const clearAllPrefixes = useHilbertStore((state) => state.clearAllPrefixes);
-    const setPrefixSplit = useHilbertStore((state) => state.setPrefixSplit);
     const useHoveredPrefix = () => {
-        return useHilbertStore((state) => state.hoverPrefix);
+
+        return useStoreSubscription(useHilbertStore, (state) => state.hoverPrefix)
     };
-    return [useHilbertStore as HilbertStoreInstance, { setPrefixConfig, clearPrefixState, clearAllPrefixes, setPrefixSplit } as PrefixStateManipulation, useHoveredPrefix as HoveredPrefixHook] as const;
+    return [useHilbertStore as HilbertStoreInstance, { setPrefixConfig, clearPrefixState, clearAllPrefixes, setPrefixSplit } as PrefixStateManipulation, {zoomToPrefix, resetZoom} as ZoomManipulation, useHoveredPrefix as HoveredPrefixHook] as const;
 }
 
 export { useControlledHilbert, stateCreator };
 
-export type { HilbertStoreInstance, HoverPrefix };
+export type { HilbertStoreInstance, HoverPrefix, HilbertStore };

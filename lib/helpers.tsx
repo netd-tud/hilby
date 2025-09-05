@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { HilbertStoreInstance } from "./useControlledHilbert";
+import { HilbertStore, HilbertStoreInstance } from "./useControlledHilbert";
 
 import { RenderFunction } from "./InteractiveHilbert";
 import { Address4, Address6 } from "ip-address";
+import { StoreApi } from "zustand";
 
 type KeyBindingsSettings = {
     originalTopPrefix: string;
@@ -127,4 +128,19 @@ const addPrefixIntoBody: RenderFunction = (prefix, _base, _netmask, config) => {
     config.innerContent.push(<div key="prefix">{prefix}</div>);
 }
 
-export { useEnableKeyBindings, basicColorRendering, addPrefixIntoBody };
+const useStoreSubscription = <T,>(store: StoreApi<HilbertStore>, selector: (state: HilbertStore) => T): T => {
+  const [state, setState] = useState(() => selector(store.getState()))
+
+  useEffect(() => {
+    const unsubscribe = store.subscribe((newState) => {
+      const newSelectedState = selector(newState)
+      setState(newSelectedState)
+    })
+
+    return unsubscribe
+  }, [selector])
+
+  return state
+}
+
+export { useEnableKeyBindings, basicColorRendering, addPrefixIntoBody, useStoreSubscription };
