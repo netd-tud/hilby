@@ -27,6 +27,7 @@
     "buildDemo": "npm run build && vite build -c vite.demo.config.ts",
     "buildPages": "npm run build && vite build -c vite.pages.config.ts",
     "previewDemo": "npm run buildDemo && vite preview --outDir demo",
+    "testDemo": "vite -c vite.demo.config.ts",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
