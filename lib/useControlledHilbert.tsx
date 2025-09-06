@@ -1,6 +1,7 @@
 import { createStore, StateCreator, StoreApi, UseBoundStore } from "zustand";
-import { SubnetConfig } from "./InteractiveHilbert";
 import { useState } from "react";
+
+import { SubnetConfig } from "./InteractiveHilbert";
 import { useStoreSubscription } from "./helpers";
 
 type HoverPrefix = {
@@ -53,8 +54,8 @@ type HilbertStoreInstance = UseBoundStore<StoreApi<HilbertStore>>;
 
 const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
     uuid: self.crypto.randomUUID(),
-    resetZoom: () => { console.log("defautl")},
-    zoomToPrefix: (_prefix) => { console.log("defautl"); return true;},
+    resetZoom: () => { console.log("defautl") },
+    zoomToPrefix: (_prefix) => { console.log("defautl"); return true; },
 
     prefixState: {},
     hoverPrefix: {
@@ -96,8 +97,7 @@ const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
         }
         for (const it_prefix of prefixList) {
             const current = state.prefixState[it_prefix];
-            
-            newState.prefixState[it_prefix] = {...current, split: split};
+            newState.prefixState[it_prefix] = { ...current, split: split };
         }
 
         return newState as HilbertStore;
@@ -129,19 +129,20 @@ const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
         }
     }),
     setResetZoom: (resetZoomF) => set({
-      
-            resetZoom: resetZoomF
-    
+        resetZoom: resetZoomF
     }),
     setZoomToPrefix: (setZoomToPrefixF) => set({
-      
-            zoomToPrefix: setZoomToPrefixF
-    
+        zoomToPrefix: setZoomToPrefixF
     })
 })
 
 
 const useControlledHilbert = () => {
+
+    // In order for multiple InteractiveHilbert components to be present on the same page
+    // and use different stores, we need to put the store in a state here. This means we
+    // cannot use zustands `create()` as it uses a ref in the background and gets confused.
+    // For this reason, we need to ship the subscription helper ourself, to be found in helpers.tsx.
     const [useHilbertStore, _] = useState(createStore<HilbertStore>(stateCreator));
 
     const setPrefixConfig = useHilbertStore.getState().setPrefixConfig;
@@ -152,10 +153,14 @@ const useControlledHilbert = () => {
     const resetZoom = useHilbertStore.getState().resetZoom;
 
     const useHoveredPrefix = () => {
-
         return useStoreSubscription(useHilbertStore, (state) => state.hoverPrefix)
     };
-    return [useHilbertStore as HilbertStoreInstance, { setPrefixConfig, clearPrefixState, clearAllPrefixes, setPrefixSplit } as PrefixStateManipulation, {zoomToPrefix, resetZoom} as ZoomManipulation, useHoveredPrefix as HoveredPrefixHook] as const;
+    return [
+        useHilbertStore as HilbertStoreInstance,
+        { setPrefixConfig, clearPrefixState, clearAllPrefixes, setPrefixSplit } as PrefixStateManipulation,
+        { zoomToPrefix, resetZoom } as ZoomManipulation,
+        useHoveredPrefix as HoveredPrefixHook
+    ] as const;
 }
 
 export { useControlledHilbert, stateCreator };

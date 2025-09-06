@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { HilbertStore, HilbertStoreInstance } from "./useControlledHilbert";
-
-import { RenderFunction } from "./InteractiveHilbert";
 import { Address4, Address6 } from "ip-address";
 import { StoreApi } from "zustand";
+
+import { HilbertStore, HilbertStoreInstance } from "./useControlledHilbert";
+import { RenderFunction } from "./InteractiveHilbert";
 
 type KeyBindingsSettings = {
     originalTopPrefix: string;
@@ -37,9 +37,9 @@ const useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyB
                 const isIPv6 = topPrefix.includes(":");
                 const baseClass = isIPv6 ? Address6 : Address4;
                 const top = new baseClass(topPrefix);
-                
+
                 const maxMaskSize = isIPv6 ? 128 : 32;
-                
+
                 if (top.subnetMask < (settings.minLevel ?? 0) + 2) return;
 
                 const mask = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFn << BigInt(maxMaskSize - top.subnetMask + 2);
@@ -128,19 +128,20 @@ const addPrefixIntoBody: RenderFunction = (prefix, _base, _netmask, config) => {
     config.innerContent.push(<div key="prefix">{prefix}</div>);
 }
 
+// See useControlledHilbert.tsx to see why this exists 
 const useStoreSubscription = <T,>(store: StoreApi<HilbertStore>, selector: (state: HilbertStore) => T): T => {
-  const [state, setState] = useState(() => selector(store.getState()))
+    const [state, setState] = useState(() => selector(store.getState()))
 
-  useEffect(() => {
-    const unsubscribe = store.subscribe((newState) => {
-      const newSelectedState = selector(newState)
-      setState(newSelectedState)
-    })
+    useEffect(() => {
+        const unsubscribe = store.subscribe((newState) => {
+            const newSelectedState = selector(newState)
+            setState(newSelectedState)
+        })
 
-    return unsubscribe
-  }, [selector])
+        return unsubscribe
+    }, [selector])
 
-  return state
+    return state
 }
 
 export { useEnableKeyBindings, basicColorRendering, addPrefixIntoBody, useStoreSubscription };

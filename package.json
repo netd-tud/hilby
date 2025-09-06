@@ -40,8 +40,8 @@
   "exports": {
     ".": {
       "import": {
-        "default": "./dist/hilby.js",
-        "types": "./dist/main.d.ts"
+        "types": "./dist/main.d.ts",
+        "default": "./dist/hilby.js"
       }
     }
   },
