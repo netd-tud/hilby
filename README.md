@@ -164,16 +164,14 @@ const renderFunctions = [addPacketCount, showPacketCount];
 
 // Render functions can be added and removed dynamically 
 if (showHighPacketFilter) {
-    // This will cause a rerender of all visible subnets but only 
-    // execute `colorHighPacketCount` since render functions are 
-    // memoized and the other two functions did not change.
+    // This will cause a rerender of all visible subnets.
     renderFunctions.push(colorHighPacketCount);
 }
 ```
 
 **Render functions need to have stable references**, meaning they should either be created outside of a React component or wrapped with the `useCallback` react hook. 
 
-Every render function is memoized at subnet level to save on render time. 
+The result of the render function sequence is memoized at subnet level to save on render time. 
 
 ## Controlling the Hilbert curve by Code
 
@@ -184,13 +182,14 @@ By default, the expansion and interaction with the Hilbert Curve is only done by
 The `useControlledHilbert` hook returns three values:
 1. `hilbertStore` has to be passed to the `InteractiveHilbert` component that should be controlled.
 2. `prefixStateManipulation` contains a collection of functions through which single prefixes can be manipulated.
-3. `useHoveredPrefix` is a hook that can be used to extract the currently hovered prefix.
+3. `zoomManipulation` contains a collection of functions through which the "camera position" can be manipulated. 
+4. `useHoveredPrefix` is a hook that can be used to extract the currently hovered prefix.
 
 
 ```tsx
 function App() {
     
-    const [hilbertStore, prefixStateManipulation, useHoveredPrefix] = useControlledHilbert();
+    const [hilbertStore, prefixStateManipulation, zoomManipulation, useHoveredPrefix] = useControlledHilbert();
 
     return (
         <InteractiveHilbert 
@@ -245,6 +244,26 @@ The action set with the `split` parameter will be applied **once** and force a r
 If its not visible, the action is stored until the subnet gets into view. (This means that a prefix can be "presplit".)
 
 By passing `null`, any currently stored setting is cleared. 
+
+### zoomManipulation
+
+#### 1. `resetZoom`
+
+```tsx
+resetZoom: () => void;
+```
+
+This function resets the zoom and position of the camera in the HilbertCurve back to the default (TopPrefix at 80% Zoom).
+
+#### 2. `zoomToPrefix`
+
+```tsx
+zoomToPrefix: (prefix: string) => boolean;
+```
+
+This function sets the camera to `prefix` at 80% zoom. It splits all prefixes required to have the target prefix visible.
+It returns a boolean indicating whether it could successfully parse the subnet provided via `prefix` and some sanity checks
+such as matching AF and if it's a subnet of the topPrefix were successful.
 
 ### Hovering
 
@@ -399,6 +418,7 @@ type SubnetConfig {
 type UseControlledHilbert = () => [
     HilbertStore,
     PrefixStateManipulation,
+    ZoomManipulation,
     () => HoverPrefix
 ];
 ```
@@ -423,6 +443,14 @@ type PrefixStateManipulation {
 }
 ```
 
+### ZoomManipulation 
+
+```typescript
+type ZoomManipulation = {
+    zoomToPrefix: (prefix: string) => boolean;
+    resetZoom: () => void;
+}
+```
 
 ## License
 
