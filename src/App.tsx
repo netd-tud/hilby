@@ -7,11 +7,11 @@ import { ip2long, long2ip } from 'netmask';
 import { useQuery } from "@tanstack/react-query";
 import { InteractiveHilbert, RenderFunction, useControlledHilbert, useEnableKeyBindings } from "../";
 import { FaBook, FaGithub, FaInfoCircle } from "react-icons/fa";
+import { Address6 } from 'ip-address';
 
 import Worker from './parse-api-data?worker';
 
 import { newAdd, coloring, getPercentage } from './rendering-functions';
-import { Address6 } from 'ip-address';
 
 import ripeLogo from "./ripe_stat_logo.png";
 import routeviewsLogo from "./routeviews_logo.png";
@@ -39,6 +39,8 @@ function App() {
     const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
     const [zoomTarget, setZoomTarget] = useState<string>("");
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
+
+    // Firefox can't draw fonts big enough to properly show the content of a prefix otherwise
     const maxExpand = navigator.userAgent.toLowerCase().includes("firefox") ? 20 : 24;
 
     let isLoading = true;
@@ -102,8 +104,7 @@ function App() {
         if (source === "ripe") {
             const response = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS${as}`)
             const parsedResponse = await response.json();
-    
-    
+
             return parsedResponse["data"]["prefixes"].map((v: { prefix: string }) => v["prefix"]);
         }
         return [];
@@ -193,13 +194,13 @@ function App() {
         <>
             <AppShell >
                 {/* Header Section */}
-                    <Container size="xl" py="md">
-                        <Group justify="space-between">
-                            <div>
-                                <Title order={1}>Hilby</Title>
-                                <Text c="dimmed" size="lg">Hilbert Interactive Prefix Plots</Text>
-                            </div>
-                              <Group justify="center">
+                <Container size="xl" py="md">
+                    <Group justify="space-between">
+                        <div>
+                            <Title order={1}>Hilby</Title>
+                            <Text c="dimmed" size="lg">Hilbert Interactive Prefix Plots</Text>
+                        </div>
+                        <Group justify="center">
                             <Group mr={"xl"}>
                                 <Text size="md" mr={-15}>Live Data provided by</Text>
                                 <a target="_blank" href="https://stat.ripe.net/">
@@ -208,17 +209,17 @@ function App() {
                                 <a target="_blank" href="https://www.routeviews.org/routeviews/">
                                     <Image src={routeviewsLogo} h={30} />
                                 </a>
-                                
+
                             </Group>
-                           
+
                             <Group>
                                 <Button.Group mr={"lg"}>
-                                    <Button component="a" variant="light" leftSection={<FaGithub />} 
-                                            target="_blank" href="https://github.com/netd-tud/hilby">
+                                    <Button component="a" variant="light" leftSection={<FaGithub />}
+                                        target="_blank" href="https://github.com/netd-tud/hilby">
                                         GitHub
                                     </Button>
-                                    <Button variant="light" leftSection={<FaBook />}  component='a'
-                                            target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">
+                                    <Button variant="light" leftSection={<FaBook />} component='a'
+                                        target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">
                                         Docs
                                     </Button>
                                     <Button variant="light" onClick={open} leftSection={<FaInfoCircle />}>
@@ -226,11 +227,11 @@ function App() {
                                     </Button>
                                 </Button.Group>
                             </Group>
-                                                </Group>
                         </Group>
+                    </Group>
 
-                    </Container>
-                  
+                </Container>
+
                 <AppShell.Main>
                     {/* Control Panel */}
                     <Container size="xl" py="md">
@@ -278,10 +279,10 @@ function App() {
                                         </Group>
                                         <Group>
                                             <Text fw={700}>Data Provider:</Text>
-                                            <Switch onChange={(e) => {
-                                                setSource(source === "routeviews" ? "ripe" : "routeviews")
-                                                }
-                                            }
+                                            <Switch
+                                                onChange={() => {
+                                                    setSource(source === "routeviews" ? "ripe" : "routeviews")
+                                                }}
                                                 disabled={isLoading}
                                                 checked={source === "ripe"}
                                                 onLabel="RIPEstat RIS" offLabel="Routeviews"
@@ -301,9 +302,8 @@ function App() {
 
                                             />
                                         </Group>
-                                        
                                     </Group>
-                                     <Group>
+                                    <Group>
                                         {/* Action buttons */}
                                         {!ipv6 && <Button color={baseColor}
                                             size='md'
@@ -316,7 +316,6 @@ function App() {
                                                     const ctr = (1 << (32 - i));
                                                     for (let j = 0; j < (1 << (i)) * 0.875; j++) {
                                                         const prefix = long2ip(itr) + "/" + i.toString();
-                                                        //prefixManipulation.setPrefixSplit(prefix, true);
                                                         prefixes.push(prefix)
                                                         itr += ctr;
                                                     }
@@ -337,7 +336,6 @@ function App() {
                                                     const ctr = (1n << (128n - i));
                                                     for (let j = 0n; j < (1n << (i - 4n)); j++) {
                                                         const prefix = Address6.fromBigInt(itr).correctForm() + "/" + i.toString();
-                                                        //prefixManipulation.setPrefixSplit(prefix, true);
                                                         prefixes.push(prefix)
                                                         itr += ctr;
                                                     }
@@ -355,21 +353,24 @@ function App() {
                                         </Button>
                                     </Group>
                                 </Group>
-                                
+
                                 <Divider />
-                                
+
                                 <Group justify="space-between">
                                     <Group>
                                         <Legend />
                                         <Group>
                                             <Text> Search for prefix:</Text>
-                                            <Input value={zoomTarget} onChange={(e) => {setZoomTarget(e.currentTarget.value); setZoomStatus(true);}} onKeyUp={(e) => { 
-                                                if (e.key === "Enter") { 
-                                                    const result = zoomManipulation.zoomToPrefix(zoomTarget);
-                                                    setZoomStatus(result);
-                                                }
-                                                }} 
-                                                error={!zoomStatus}></Input>
+                                            <Input
+                                                value={zoomTarget}
+                                                onChange={(e) => { setZoomTarget(e.currentTarget.value); setZoomStatus(true); }} onKeyUp={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        const result = zoomManipulation.zoomToPrefix(zoomTarget);
+                                                        setZoomStatus(result);
+                                                    }
+                                                }}
+                                                error={!zoomStatus}
+                                            ></Input>
                                         </Group>
                                     </Group>
                                     <Group>
@@ -381,28 +382,48 @@ function App() {
                     </Container>
 
                     {/* Main Hilbert Plot */}
-                    <Container size="xl" style={{ flexGrow: 1 } } mb={"md"}>
+                    <Container size="xl" style={{ flexGrow: 1 }} mb={"md"}>
                         <div className="hilbert-container">
                             {/* Hilbert plot content */}
                             {isLoading && <Loader color={baseColor} />}
-                            {!isLoading && <InteractiveHilbert topPrefix={topPrefix} renderFunctions={renderFunctions} hilbertStore={hilbertStore} maxExpand={maxExpand}/>}
+                            {!isLoading && <InteractiveHilbert topPrefix={topPrefix} renderFunctions={renderFunctions} hilbertStore={hilbertStore} maxExpand={maxExpand} />}
                         </div>
                     </Container>
                 </AppShell.Main>
 
-                 <Container size="xl" py="sm">
+                <Container size="xl" py="sm">
                     <Group justify='center' mb="sm">
-                       <Group>
-                            <Text size="md">Built at <a style={{color:baseColor, textDecorationLine: "none", fontWeight:700}} href="https://netd.inf.tu-dresden.de/">TUD NETD</a></Text>
-                            </Group>
-                            <Text>|</Text>
-                            <Group>
-                                <Text size="md">Presented at <a style={{color:baseColor, textDecorationLine: "none", fontWeight:700}} href="https://doi.org/10.1145/3744969.3748402">SIGCOMM</a></Text>
-                            </Group>
-                            </Group>
-                    </Container>
+                        <Group>
+                            <Text size="md">
+                                Built at <a
+                                    style={{
+                                        color: baseColor,
+                                        textDecorationLine: "none",
+                                        fontWeight: 700
+                                    }}
+                                    href="https://netd.inf.tu-dresden.de/">
+                                    TUD NETD
+                                </a>
+                            </Text>
+                        </Group>
+                        <Text>|</Text>
+                        <Group>
+                            <Text size="md">
+                                Presented at <a
+                                    style={{
+                                        color: baseColor,
+                                        textDecorationLine: "none",
+                                        fontWeight: 700
+                                    }}
+                                    href="https://doi.org/10.1145/3744969.3748402">
+                                    SIGCOMM
+                                </a>
+                            </Text>
+                        </Group>
+                    </Group>
+                </Container>
             </AppShell>
-            <TutorialModal opened={opened} close={close}/>
+            <TutorialModal opened={opened} close={close} />
         </>
     )
 }
