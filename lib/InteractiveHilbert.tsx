@@ -98,6 +98,8 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
 
             targetAddress = new Address(correctedCIDR);
 
+            if (!targetAddress.isInSubnet(topPrefixAddress)) return false;
+
         } catch (error) {
             return false;
         }
