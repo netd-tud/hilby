@@ -143,7 +143,8 @@ function AddressBlock(props: AddressBlockProps) {
             for (const renderFunction of props.renderFunctions) {
                 renderFunction(props.prefix, long_base, block.subnetMask, config);
             }
-
+        }
+        if (configPresentInStore && prefixState.merge) {
             config.innerContent = [...config.innerContent, ...(prefixState.config.innerContent ?? [])];
             config.properties = { ...config.properties, ...prefixState.config.properties };
             config.style = { ...config.style, ...prefixState.config.style };
