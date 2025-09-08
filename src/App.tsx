@@ -39,6 +39,7 @@ function App() {
     const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
     const [zoomTarget, setZoomTarget] = useState<string>("");
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
+    const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
 
     // Firefox can't draw fonts big enough to properly show the content of a prefix otherwise
     const maxExpand = navigator.userAgent.toLowerCase().includes("firefox") ? 20 : 24;
@@ -255,6 +256,7 @@ function App() {
                                             <Switch onChange={(e) => {
                                                 setipv6(e.currentTarget.checked);
                                                 setUsedData(null);
+                                                setCollapseStatus(false);
                                                 setTopPrefix(e.currentTarget.checked ? "2000::/4" : "0.0.0.0/0");
                                             }
                                             }
@@ -307,44 +309,56 @@ function App() {
                                         {/* Action buttons */}
                                         {!ipv6 && <Button color={baseColor}
                                             size='md'
+                                            w="152px"
                                             onClick={() => {
-                                                const base = ip2long("0.0.0.0");
-                                                const prefixes: string[] = [];
-
-                                                for (let i = 0; i < 8; i += 2) {
-                                                    let itr = base;
-                                                    const ctr = (1 << (32 - i));
-                                                    for (let j = 0; j < (1 << (i)) * 0.875; j++) {
-                                                        const prefix = long2ip(itr) + "/" + i.toString();
-                                                        prefixes.push(prefix)
-                                                        itr += ctr;
+                                                if (!collapseStatus) {
+                                                    const base = ip2long("0.0.0.0");
+                                                    const prefixes: string[] = [];
+    
+                                                    for (let i = 0; i < 8; i += 2) {
+                                                        let itr = base;
+                                                        const ctr = (1 << (32 - i));
+                                                        for (let j = 0; j < (1 << (i)) * 0.875; j++) {
+                                                            const prefix = long2ip(itr) + "/" + i.toString();
+                                                            prefixes.push(prefix)
+                                                            itr += ctr;
+                                                        }
                                                     }
+    
+                                                    prefixManipulation.setPrefixSplit(prefixes, true);
+                                                    setCollapseStatus(true);
+                                                } else {
+                                                    prefixManipulation.setPrefixSplit(topPrefix, false);
+                                                    setCollapseStatus(false);
                                                 }
-
-                                                prefixManipulation.setPrefixSplit(prefixes, true);
-
                                             }}>
-                                            Expand all /8s
+                                            {!collapseStatus ? "Expand all /8s" : "Collapse to /0"}
                                         </Button>}
                                         {ipv6 && <Button color={baseColor}
                                             size='md'
+                                            w="152px"
                                             onClick={() => {
-                                                const base = new Address6(topPrefix).bigInt();
-                                                const prefixes: string[] = [];
-                                                for (let i = 4n; i < 10n; i += 2n) {
-                                                    let itr = base;
-                                                    const ctr = (1n << (128n - i));
-                                                    for (let j = 0n; j < (1n << (i - 4n)); j++) {
-                                                        const prefix = Address6.fromBigInt(itr).correctForm() + "/" + i.toString();
-                                                        prefixes.push(prefix)
-                                                        itr += ctr;
+                                                if (!collapseStatus) {
+                                                    const base = new Address6(topPrefix).bigInt();
+                                                    const prefixes: string[] = [];
+                                                    for (let i = 4n; i < 10n; i += 2n) {
+                                                        let itr = base;
+                                                        const ctr = (1n << (128n - i));
+                                                        for (let j = 0n; j < (1n << (i - 4n)); j++) {
+                                                            const prefix = Address6.fromBigInt(itr).correctForm() + "/" + i.toString();
+                                                            prefixes.push(prefix)
+                                                            itr += ctr;
+                                                        }
                                                     }
+    
+                                                    prefixManipulation.setPrefixSplit(prefixes, true);
+                                                    setCollapseStatus(true);
+                                                } else {
+                                                    prefixManipulation.setPrefixSplit(topPrefix, false);
+                                                    setCollapseStatus(false);
                                                 }
-
-                                                prefixManipulation.setPrefixSplit(prefixes, true);
-
                                             }}>
-                                            Expand all /10s
+                                            {!collapseStatus ? "Expand all /10s" : "Collapse to /0"}
                                         </Button>}
                                         <Button color={baseColor} size='md' onClick={() => {
                                             zoomManipulation.resetZoom();
