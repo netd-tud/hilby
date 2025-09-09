@@ -41,13 +41,8 @@ function App() {
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
 
-    let maxExpand = 24;
-    
     // Firefox can't draw fonts big enough to properly show the content of a prefix otherwise
-    if (navigator.userAgent.toLowerCase().includes("firefox")) maxExpand = 20;
-    // Safari cannot properly draw zoom levels any further
-    if (navigator.userAgent.toLowerCase().includes("safari")) maxExpand = 30;
-
+    const maxExpand = navigator.userAgent.toLowerCase().includes("firefox") ? 20 : 24;
 
     let isLoading = true;
 
