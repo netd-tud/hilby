@@ -36,7 +36,7 @@ function App() {
 
     const [noData, setNoData] = useState(false);
     const [parsing, setParsing] = useState(false);
-    const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
+    const [source, setSource] = useState<"ripe" | "routeviews">("ripe");
     const [zoomTarget, setZoomTarget] = useState<string>("");
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
@@ -205,10 +205,10 @@ function App() {
                             <Group mr={"xl"}>
                                 <Text size="md" mr={-15}>Live Data provided by</Text>
                                 <a target="_blank" href="https://stat.ripe.net/">
-                                    <Image src={ripeLogo} h={30} />
+                                    <Image src={ripeLogo} h={30} w={150}/>
                                 </a>
                                 <a target="_blank" href="https://www.routeviews.org/routeviews/">
-                                    <Image src={routeviewsLogo} h={30} />
+                                    <Image src={routeviewsLogo} h={30} w={30}/>
                                 </a>
 
                             </Group>
