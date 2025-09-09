@@ -36,7 +36,7 @@ function App() {
 
     const [noData, setNoData] = useState(false);
     const [parsing, setParsing] = useState(false);
-    const [source, setSource] = useState<"ripe" | "routeviews">("ripe");
+    const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
     const [zoomTarget, setZoomTarget] = useState<string>("");
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
