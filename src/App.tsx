@@ -2,12 +2,16 @@ import './App.css'
 
 import { useCallback, useDeferredValue, useEffect, useState } from 'react'
 import { AppShell, Button, Container, Divider, Group, Image, Input, Loader, Paper, Switch, Text, Title, Stack } from "@mantine/core";
-import { useDebouncedState, useDisclosure } from '@mantine/hooks';
+import { useDebouncedState,useDebouncedCallback, useDisclosure } from '@mantine/hooks';
 import { ip2long, long2ip } from 'netmask';
 import { useQuery } from "@tanstack/react-query";
 import { InteractiveHilbert, RenderFunction, useControlledHilbert, useEnableKeyBindings } from "../";
 import { FaBook, FaGithub, FaInfoCircle } from "react-icons/fa";
 import { Address6 } from 'ip-address';
+import AsyncSelect from 'react-select/async';
+import { DatePickerInput } from '@mantine/dates';
+import '@mantine/dates/styles.css'
+
 
 import Worker from './parse-api-data?worker';
 
@@ -32,14 +36,51 @@ function App() {
     const deferredUsedData = useDeferredValue(usedData);
 
     const [hilbertStore, prefixManipulation, zoomManipulation, _useHoveredPrefix] = useControlledHilbert();
-    const [topPrefix, setTopPrefix] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
+    const [topPrefix, setTopPrefix, keyHandler] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
 
     const [noData, setNoData] = useState(false);
     const [parsing, setParsing] = useState(false);
-    const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
+    const [source, setSource] = useState<"ripe" | "routeviews">("ripe");
     const [zoomTarget, setZoomTarget] = useState<string>("");
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
+
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const [lockSource, setLockSource] = useState<boolean>(false);
+
+    const getName = async (inputValue: string, callback: (options: string[]) => void) => {
+        
+        const tryInt = parseInt(inputValue);
+
+
+        let response;
+
+        if (!isNaN(tryInt)) {
+            response = await fetch(`https://www.peeringdb.com/api/net?asn=${inputValue.toLowerCase()}&limit=10`);
+            if (response.status === 404)  {
+                callback([{
+                    label: `AS${tryInt}`,
+                    value: tryInt
+                }])
+                return;
+            }
+
+        } else {
+            if (inputValue.length < 3) return [];
+            
+            response = await fetch(`https://www.peeringdb.com/api/net?name_search=${inputValue.toLowerCase()}&limit=10`);
+            
+        } 
+        const value =  (await response.json())["data"].map((e) => {
+            return {
+                label: e["name"] + ` (AS${e["asn"]})`, 
+                value: e["asn"]
+            }
+        });
+        console.log(value)
+        callback(value);
+    }
+    const debouncedGetName = useDebouncedCallback(getName, 1000);
 
     // Firefox can't draw fonts big enough to properly show the content of a prefix otherwise
     const maxExpand = navigator.userAgent.toLowerCase().includes("firefox") ? 20 : 24;
@@ -103,17 +144,28 @@ function App() {
             return await response.json();
         }
         if (source === "ripe") {
-            const response = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS${as}`)
+
+            let response;
+
+            console.log(selectedDate)
+
+            if (selectedDate !== null) {
+
+                response = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS${as}&starttime=${selectedDate}T00:00&endtime=${selectedDate}T22:00`)
+
+            } else {
+                response = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS${as}`)
+            }
             const parsedResponse = await response.json();
 
             return parsedResponse["data"]["prefixes"].map((v: { prefix: string }) => v["prefix"]);
         }
         return [];
 
-    }, [source])
+    }, [source, selectedDate])
 
     const result = useQuery({
-        queryKey: [selectedAS, source],
+        queryKey: [selectedAS, source, selectedDate],
         queryFn: () => getAnnouncedPrefixes(selectedAS),
     })
 
@@ -190,6 +242,16 @@ function App() {
         parsingText = "Parsing new data...";
     }
 
+    const handleDateSelect = (value: string | null) => {
+        if (value !== null) {
+            setSource("ripe");
+            setLockSource(true);
+        } else {
+            setLockSource(false);
+        }
+        console.log(value)
+        setSelectedDate(value);
+    }
 
     return (
         <>
@@ -210,7 +272,9 @@ function App() {
                                 <a target="_blank" href="https://www.routeviews.org/routeviews/">
                                     <Image src={routeviewsLogo} h={30} w={30}/>
                                 </a>
-
+                                 <a target="_blank" href="https://www.peeringdb.com/" style={{marginLeft: "10px"}}>
+                                    <Image src="https://www.peeringdb.com/s/2.71.0//pdb-logo-coloured.png" h={35} w={150}/>
+                                </a>
                             </Group>
 
                             <Group>
@@ -241,15 +305,54 @@ function App() {
                                 <Group justify='space-between'>
                                     <Group>
                                         <Group>
-                                            <Text fw={700}>AS Number:</Text>
-                                            <Input
+                                            <Text fw={700}>AS:</Text>
+                                            <div
+                                                style={{width:"250px"}}
+                                            >
+
+                                              <AsyncSelect cacheOptions 
+                                              defaultValue={[{label: "Amazon.com (AS16509)", value: 16509}]} 
+                                              loadOptions={debouncedGetName}
+                                                 onChange={(newValue) => {
+                                                     if (newValue === null) return;
+                                                     console.log(newValue.value)
+                                                     setSelectedAS(newValue.value.toString())
+                                                    }}
+                                                    components={{
+                                                        DropdownIndicator: () => null,
+                                                        IndicatorSeparator:() => null
+                                                    }}
+                                                    styles={{
+                                                        input: (baseStyle, state) => ({
+                                                            ...baseStyle,
+                                                            height: "31.5px",
+                                                        }),
+                                                        control: (baseStyle, state) => ({
+                                                            ...baseStyle,
+                                                            borderColor: "var(--mantine-color-gray-4)"
+
+                                                        })
+                                                    }}
+                                                    />
+                                                    </div>
+
+                                            {/* <Input
                                                 defaultValue={selectedAS}
                                                 style={{ fontWeight: "700" }}
                                                 fs={"1rem"}
                                                 size='md'
                                                 disabled={parsingText !== ""}
                                                 onChange={(event) => setSelectedAS(event.currentTarget.value)}
-                                            ></Input>
+                                            ></Input> */}
+                                            {/* <Text fw={700} w={"90px"}>AS{selectedAS}</Text> */}
+                                            <DatePickerInput
+                                                placeholder="Go back in time"
+                                                value={selectedDate}
+                                                onChange={handleDateSelect}
+                                                clearable
+                                                size="md"
+                                                w="210px"
+/>
                                         </Group>
                                         <Group>
                                             <Text fw={700}>Protocol:</Text>
@@ -285,7 +388,7 @@ function App() {
                                                 onChange={() => {
                                                     setSource(source === "routeviews" ? "ripe" : "routeviews")
                                                 }}
-                                                disabled={isLoading}
+                                                disabled={isLoading || lockSource}
                                                 checked={source === "ripe"}
                                                 onLabel="RIPEstat RIS" offLabel="Routeviews"
                                                 size='lg'
@@ -371,7 +474,7 @@ function App() {
                                 <Divider />
 
                                 <Group justify="space-between">
-                                    <Group>
+                                    <Group w="100%">
                                         <Legend />
                                         <Group>
                                             <Text> Search for prefix:</Text>
@@ -386,9 +489,7 @@ function App() {
                                                 error={!zoomStatus}
                                             ></Input>
                                         </Group>
-                                    </Group>
-                                    <Group>
-                                        <Text> {parsingText}</Text>
+                                        <Text ml="auto"> {parsingText}</Text>
                                     </Group>
                                 </Group>
                             </Stack>
@@ -397,7 +498,7 @@ function App() {
 
                     {/* Main Hilbert Plot */}
                     <Container size="xl" style={{ flexGrow: 1 }} mb={"md"}>
-                        <div className="hilbert-container">
+                        <div className="hilbert-container" tabIndex={0} onKeyUp={keyHandler}>
                             {/* Hilbert plot content */}
                             {isLoading && <Loader color={baseColor} />}
                             {!isLoading && <InteractiveHilbert topPrefix={topPrefix} renderFunctions={renderFunctions} hilbertStore={hilbertStore} maxExpand={maxExpand} />}

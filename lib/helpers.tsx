@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { KeyboardEventHandler, useCallback, useEffect, useState } from "react";
 import { Address4, Address6 } from "ip-address";
 import { StoreApi } from "zustand";
 
@@ -17,43 +17,38 @@ const useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyB
 
     const [topPrefix, setTopPrefix] = useState(settings.originalTopPrefix);
 
-    useEffect(() => {
-        const x = (e: KeyboardEvent) => {
-            if (e.key === (settings.zoomInKey ?? "e")) {
+    const keyhandler = useCallback<KeyboardEventHandler>((e) => {
+        if (e.key === (settings.zoomInKey ?? "e")) {
 
-                const hoverPrefix = hilbertStore.getState().hoverPrefix;
-                const prefix = hoverPrefix.prefix;
-                const netmaskSize = parseInt(prefix.split("/")[1])
+            const hoverPrefix = hilbertStore.getState().hoverPrefix;
+            const prefix = hoverPrefix.prefix;
+            const netmaskSize = parseInt(prefix.split("/")[1])
 
-                // We only support even prefixes anyways
-                if (netmaskSize % 2 !== 0) return;
+            // We only support even prefixes anyways
+            if (netmaskSize % 2 !== 0) return;
 
-                if (netmaskSize >= (settings.maxLevel ?? 32)) return;
+            if (netmaskSize >= (settings.maxLevel ?? 32)) return;
 
-                setTopPrefix(prefix);
-            }
-
-            if (e.key === (settings.zoomOutKey ?? "q")) {
-                const isIPv6 = topPrefix.includes(":");
-                const baseClass = isIPv6 ? Address6 : Address4;
-                const top = new baseClass(topPrefix);
-
-                const maxMaskSize = isIPv6 ? 128 : 32;
-
-                if (top.subnetMask < (settings.minLevel ?? 0) + 2) return;
-
-                const mask = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFn << BigInt(maxMaskSize - top.subnetMask + 2);
-
-                const oneUp = baseClass.fromBigInt(top.startAddress().bigInt() & mask).correctForm() + "/" + (top.subnetMask - 2).toString();
-                setTopPrefix(oneUp);
-            }
+            setTopPrefix(prefix);
         }
 
-        window.addEventListener("keyup", x)
-        return () => window.removeEventListener("keyup", x);
-    }, [settings.originalTopPrefix, hilbertStore])
+        if (e.key === (settings.zoomOutKey ?? "q")) {
+            const isIPv6 = topPrefix.includes(":");
+            const baseClass = isIPv6 ? Address6 : Address4;
+            const top = new baseClass(topPrefix);
 
-    return [topPrefix, setTopPrefix] as const;
+            const maxMaskSize = isIPv6 ? 128 : 32;
+            if (top.subnetMask < (settings.minLevel ?? 0) + 2) return;
+
+            const mask = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFn << BigInt(maxMaskSize - top.subnetMask + 2);
+            const oneUp = baseClass.fromBigInt(top.startAddress().bigInt() & mask).correctForm() + "/" + (top.subnetMask - 2).toString();
+            setTopPrefix(oneUp);
+        }
+    
+
+    }, [settings.originalTopPrefix, hilbertStore,topPrefix])
+
+    return [topPrefix, setTopPrefix, keyhandler] as const;
 }
 
 const basicColorRendering: (colorProperty: string, minValue: number, maxValue: number) => RenderFunction = (colorProperty: string, minValue: number, maxValue: number) => {
