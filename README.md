@@ -310,7 +310,7 @@ This hook allows a user to "expand" in and out of a prefix by changing the `topP
 It requires a controlled Hilbert Curve and takes the corresponding `HilbertStoreInstance` as the first parameter. Additional settings can be set via the `KeyBindingsSettings` object.
 `originalTopPrefix` will probably take the value of the largest available prefix. `minLevel` and `maxLevel` allow to limit how far in and out a user can expand (defaulting to `0` and MAX_NUMBER_OF_BITS for the `originalTopPrefix` respectively). The hotkeys for expanding in and out can be set via `zoomInKey` (default: `e`) and `zoomOutKey` (default: `q`).
 
-The hook returns both a state variable that should be passed to `topPrefix` of the HilbertCurve and a setter to update that state externally (just like `useState`). 
+The hook returns a state variable that should be passed to `topPrefix` of the HilbertCurve and a setter to update that state externally (just like `useState`). Additionally it returns a keyHandler function which should be bound to the top component from which keycontrol is desired.
 
 ```ts
 type KeyBindingsSettings = {
@@ -321,7 +321,7 @@ type KeyBindingsSettings = {
     zoomOutKey?: string;
 }
 
-type useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyBindingsSettings) => [string, (newPrefix: string) => void];
+type useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyBindingsSettings) => [string, (newPrefix: string) => void, (React.KeyboardEvent) => void];
 ```
 
 Example:
@@ -329,9 +329,13 @@ Example:
 function App() {
 
     const [hilbertStore, prefixStateManipulation, useHoveredPrefix] = useControlledHilbert()  
-    const [topPrefix, setTopPrefix] = useEnableKeyBindings(hilbertStore, {originalTopPrefix: "1.0.0.0/8", minLevel: 8, maxLevel: 32, zoomInKey: "e", zoomOutKey: "q"});
+    const [topPrefix, setTopPrefix, keyHandler] = useEnableKeyBindings(hilbertStore, {originalTopPrefix: "1.0.0.0/8", minLevel: 8, maxLevel: 32, zoomInKey: "e", zoomOutKey: "q"});
 
-    return <InteractiveHilbert topPrefix={topPrefix} hilbertStore={hilbertStore}/>
+    return (
+        <div onKeyUp={keyHandler} tabIndex={0}>
+            <InteractiveHilbert topPrefix={topPrefix} hilbertStore={hilbertStore}/>
+        </div>
+        )
 }
 ```
 
@@ -405,7 +409,7 @@ type RenderFunction = (
 ### SubnetConfig
 
 ```typescript
-type SubnetConfig {
+type SubnetConfig = {
     style: CSSProperties;
     innerContent: ReactNode[];
     properties: Record<string, any>;
@@ -426,7 +430,7 @@ type UseControlledHilbert = () => [
 ### HoverPrefix
 
 ```typescript
-type HoverPrefix {
+type HoverPrefix = {
     prefix: string;
     config: SubnetConfig;
 }
@@ -435,7 +439,7 @@ type HoverPrefix {
 ### PrefixStateManipulation
 
 ```typescript
-type PrefixStateManipulation {
+type PrefixStateManipulation = {
     setPrefixConfig: (prefix: string, state: Partial<SubnetConfig>, merge?: boolean) => void;
     clearPrefixState: (prefix: string) => void;
     clearAllPrefixes: () => void;
