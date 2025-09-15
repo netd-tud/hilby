@@ -48,7 +48,7 @@ function App() {
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [lockSource, setLockSource] = useState<boolean>(false);
 
-    const getName = async (inputValue: string, callback: (options: string[]) => void) => {
+    const getName = async (inputValue: string, callback: (options: {label: string, value: number}[]) => void) => {
         
         const tryInt = parseInt(inputValue);
 
@@ -71,10 +71,14 @@ function App() {
             response = await fetch(`https://www.peeringdb.com/api/net?name_search=${inputValue.toLowerCase()}&limit=10`);
             
         } 
-        const value =  (await response.json())["data"].map((e) => {
-            return {
-                label: e["name"] + ` (AS${e["asn"]})`, 
-                value: e["asn"]
+        const value =  (await response.json())["data"].map((e: Record<string, string | number>) => {
+            if (e !== null && typeof(e) === "object" && e.hasOwnProperty("name") && e.hasOwnProperty("asn")) {
+                return {
+                    label: e["name"] + ` (AS${e["asn"]})`, 
+                    value: e["asn"]
+                }
+            } else {
+                return;
             }
         });
         console.log(value)
@@ -323,11 +327,11 @@ function App() {
                                                         IndicatorSeparator:() => null
                                                     }}
                                                     styles={{
-                                                        input: (baseStyle, state) => ({
+                                                        input: (baseStyle, _state) => ({
                                                             ...baseStyle,
                                                             height: "31.5px",
                                                         }),
-                                                        control: (baseStyle, state) => ({
+                                                        control: (baseStyle, _state) => ({
                                                             ...baseStyle,
                                                             borderColor: "var(--mantine-color-gray-4)"
 
