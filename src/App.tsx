@@ -1,12 +1,13 @@
 import './App.css'
 
 import { useCallback, useDeferredValue, useEffect, useState } from 'react'
-import { AppShell, Button, Container, Divider, Group, Image, Input, Loader, Paper, Switch, Text, Title, Stack } from "@mantine/core";
+import { AppShell, Button, Container, Divider, Group, Image, Input, Loader, Paper, Switch, Text, Title, Stack, Alert } from "@mantine/core";
 import { useDebouncedState,useDebouncedCallback, useDisclosure } from '@mantine/hooks';
 import { ip2long, long2ip } from 'netmask';
 import { useQuery } from "@tanstack/react-query";
 import { InteractiveHilbert, RenderFunction, useControlledHilbert, useEnableKeyBindings } from "../";
 import { FaBook, FaGithub, FaInfoCircle } from "react-icons/fa";
+import { IoWarningOutline } from "react-icons/io5";
 import { Address6 } from 'ip-address';
 import AsyncSelect from 'react-select/async';
 import { DatePickerInput } from '@mantine/dates';
@@ -40,7 +41,7 @@ function App() {
 
     const [noData, setNoData] = useState(false);
     const [parsing, setParsing] = useState(false);
-    const [source, setSource] = useState<"ripe" | "routeviews">("ripe");
+    const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
     const [zoomTarget, setZoomTarget] = useState<string>("");
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
@@ -304,6 +305,11 @@ function App() {
                 <AppShell.Main>
                     {/* Control Panel */}
                     <Container size="xl" py="md">
+                        {
+                            selectedDate !== null && <Alert variant="light" color="yellow" title="Potentially Inaccurate AS Names" icon={<IoWarningOutline/>} mb={"md"}>
+                                Please note that the AS names shown are the current names according to PeeringDB. Therefore, the displayed name may not match the actual name of the AS at the selected date.
+                                </Alert>
+                        }
                         <Paper shadow="sm" p="md" mb="md">
                             <Stack gap="md">
                                 <Group justify='space-between'>
@@ -337,6 +343,7 @@ function App() {
 
                                                         })
                                                     }}
+                                                    
                                                     />
                                                     </div>
 
