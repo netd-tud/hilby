@@ -394,6 +394,7 @@ To support both IPv4 and IPv6, all addresses are stored in `BigInt`s internally.
 - `topPrefix: string` - The root prefix to start rendering from (accepts both IPv4 and IPv6 prefixes)
 - `renderFunctions: RenderFunction[]` - Array of functions that customize the rendering of each block
 - `hilbertStore?: HilbertStore` - Optional store for controlled curves. Obtain this via `useControlledHilbert`.
+- `zoomSettings?: { minZoom: number }` - Optional settings for zoom constraints. `minZoom` sets the minimum zoom level (defaults to fitting the curve in view). Value is from 0-1 where the ratio defines the % of the container the hilbert curve takes up at mininum.
 
 ### RenderFunction
 

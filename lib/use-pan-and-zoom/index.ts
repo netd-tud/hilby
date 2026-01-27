@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useRef } from "react";
 
 import {
   noop,
@@ -76,9 +76,8 @@ export default function usePanZoom({
     nEvents: 0
   });
 
-  const clampX = useMemo(() => clamp(minX, maxX), [minX, maxX]);
-  const clampY = useMemo(() => clamp(minY, maxY), [minY, maxY]);
-  const clampZoom = useMemo(() => clamp(minZoom, maxZoom), [minZoom, maxZoom]);
+  const constraints = useRef({ minX, maxX, minY, maxY, minZoom, maxZoom });
+  constraints.current = { minX, maxX, minY, maxY, minZoom, maxZoom };
 
   const setTransform = useCallback(
     (v: transform | ((current: transform) => transform)) => {
@@ -104,6 +103,9 @@ export default function usePanZoom({
   const setPan = useCallback(
     (value: ((current: position) => position) | position) =>
       setTransform(({ x, y, zoom }) => {
+        const { minX, maxX, minY, maxY } = constraints.current;
+        const clampX = clamp(minX, maxX);
+        const clampY = clamp(minY, maxY);
         const newPan = typeof value === "function" ? value({ x, y }) : value;
        // console.log("setPan",clampX(newPan.x),
        // clampY(newPan.y),
@@ -114,7 +116,7 @@ export default function usePanZoom({
           zoom,
         };
       }),
-    [clampX, clampY, setTransform]
+    [setTransform]
   );
 
   const setZoom = useCallback(
@@ -122,6 +124,11 @@ export default function usePanZoom({
       const container = containerRef.current;
       if (container) {
         setTransform(({ x, y, zoom }) => {
+          const { minZoom, maxZoom, minX, maxX, minY, maxY } = constraints.current;
+          const clampZoom = clamp(minZoom, maxZoom);
+          const clampX = clamp(minX, maxX);
+          const clampY = clamp(minY, maxY);
+
           const newZoom = clampZoom(
             typeof value === "function" ? value(zoom) : value
           );
@@ -144,7 +151,7 @@ export default function usePanZoom({
         });
       }
     },
-    [clampX, clampY, clampZoom, setTransform]
+    [setTransform]
   );
 
   const setPanAndZoom = useCallback(

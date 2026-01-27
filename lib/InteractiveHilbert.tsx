@@ -20,6 +20,9 @@ interface InteractiveHilbertProps {
     renderFunctions: RenderFunction[];
     hilbertStore?: HilbertStoreInstance;
     maxExpand?: number;
+    zoomSettings?: {
+        minZoom: number;
+    }
 }
 
 const InteractiveHilbert = (props: InteractiveHilbertProps) => {
@@ -28,13 +31,51 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
     // 100k gives us 24 steps down, but is otherwise arbitrarily chosen
     const size = 100000 * 2 ** ((localMaxExpand - 24) / 2);
 
+    const ref = useRef<HTMLDivElement>(null);
+    const [containerSizeState, setContainerSizeState] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        if (!ref.current) return;
+        const resizeObserver = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (entry) {
+                setContainerSizeState({
+                    width: entry.contentRect.width,
+                    height: entry.contentRect.height
+                });
+            }
+        });
+        resizeObserver.observe(ref.current);
+
+        setContainerSizeState({
+            width: ref.current.offsetWidth,
+            height: ref.current.offsetHeight
+        });
+
+        return () => resizeObserver.disconnect();
+    }, []);
+
+    const minZoom = useMemo(() => {
+        const fraction = props.zoomSettings?.minZoom ?? 0.8;
+        const minDim = Math.min(containerSizeState.width, containerSizeState.height);
+        
+        // If dimensions are 0 (initial render), assume a safe default (e.g., 800px)
+        const effectiveDim = minDim === 0 ? 800 : minDim;
+        
+        return effectiveDim * (fraction / size);
+    }, [props.zoomSettings, containerSizeState, size]);
+
     const {
         transform,
         setContainer,
         panZoomHandlers,
-        setPanAndZoom
+        setPanAndZoom,
+        zoom,
+        setZoom,
+        setPan
     } = usePanZoom({
-        initialZoom: (800 / size),
+        initialZoom: minZoom,
+        minZoom: minZoom,
         initialPan: {
             x: -(size / 2 - 650 / 2),
             y: -(size / 2 - 500 / 2)
@@ -43,7 +84,38 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
         containerSize: size
     });
 
-    const ref = useRef<HTMLDivElement>(null);
+    const prevContainerSize = useRef({ width: 0, height: 0 });
+
+    // Enforce minZoom constraint when it changes and adjust pan on resize
+    useEffect(() => {
+        if (zoom < minZoom) {
+            setZoom(minZoom, {
+                x: containerSizeState.width / 2,
+                y: containerSizeState.height / 2
+            });
+        }
+
+        const { width: prevW, height: prevH } = prevContainerSize.current;
+        const { width: curW, height: curH } = containerSizeState;
+
+        // Skip if previous size was 0 (initial load) or invalid
+        if (prevW !== 0 && prevH !== 0 && curW !== 0 && curH !== 0) {
+            const deltaX = (curW - prevW) / 2;
+            const deltaY = (curH - prevH) / 2;
+
+            if (deltaX !== 0 || deltaY !== 0) {
+                setPan(({ x, y }) => ({
+                    x: x + deltaX,
+                    y: y + deltaY
+                }));
+            }
+        }
+
+        if (curW !== 0 && curH !== 0) {
+            prevContainerSize.current = containerSizeState;
+        }
+
+    }, [minZoom, zoom, setZoom, containerSizeState, setPan]);
     const [, refresh] = useState({});
 
     const hilbertStore = props.hilbertStore === undefined ? create(stateCreator) : props.hilbertStore;
@@ -185,7 +257,7 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
     return (
         <div ref={ref} style={{ maxHeight: "min(100vh, 100%)", maxWidth: "min(100vw, 100%)", userSelect: "none", overflow: "hidden" }}>
             <div style={{ height: size, width: size, }}>
-                <div ref={(el) => { setContainer(el) }} {...panZoomHandlers} style={{ touchAction: "none", width: "100%", height: "100%" }}>
+                <div ref={setContainer} {...panZoomHandlers} style={{ touchAction: "none", width: "100%", height: "100%" }}>
                     <div style={{ transform, width: "100%", height: "100%" }}>
                         {content}
                     </div>
