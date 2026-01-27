@@ -43,10 +43,10 @@ export default function usePanZoom({
   zoomSensitivity?: number;
   minZoom?: number;
   maxZoom?: number;
-  minX?: number;
-  maxX?: number;
-  minY?: number;
-  maxY?: number;
+  minX?: number | ((zoom: number) => number);
+  maxX?: number | ((zoom: number) => number);
+  minY?: number | ((zoom: number) => number);
+  maxY?: number | ((zoom: number) => number);
   initialZoom?: number;
   initialPan?: position;
   onPanStart?: (touches: position[], transform: transform) => void;
@@ -79,6 +79,16 @@ export default function usePanZoom({
   const constraints = useRef({ minX, maxX, minY, maxY, minZoom, maxZoom });
   constraints.current = { minX, maxX, minY, maxY, minZoom, maxZoom };
 
+  const resolveConstraint = (
+    constraint: number | ((zoom: number) => number),
+    zoom: number
+  ) => {
+    if (typeof constraint === "function") {
+      return constraint(zoom);
+    }
+    return constraint;
+  };
+
   const setTransform = useCallback(
     (v: transform | ((current: transform) => transform)) => {
       const container = containerRef.current;
@@ -104,8 +114,12 @@ export default function usePanZoom({
     (value: ((current: position) => position) | position) =>
       setTransform(({ x, y, zoom }) => {
         const { minX, maxX, minY, maxY } = constraints.current;
-        const clampX = clamp(minX, maxX);
-        const clampY = clamp(minY, maxY);
+        const resolvedMinX = resolveConstraint(minX, zoom);
+        const resolvedMaxX = resolveConstraint(maxX, zoom);
+        const resolvedMinY = resolveConstraint(minY, zoom);
+        const resolvedMaxY = resolveConstraint(maxY, zoom);
+        const clampX = clamp(resolvedMinX, resolvedMaxX);
+        const clampY = clamp(resolvedMinY, resolvedMaxY);
         const newPan = typeof value === "function" ? value({ x, y }) : value;
        // console.log("setPan",clampX(newPan.x),
        // clampY(newPan.y),
@@ -126,12 +140,17 @@ export default function usePanZoom({
         setTransform(({ x, y, zoom }) => {
           const { minZoom, maxZoom, minX, maxX, minY, maxY } = constraints.current;
           const clampZoom = clamp(minZoom, maxZoom);
-          const clampX = clamp(minX, maxX);
-          const clampY = clamp(minY, maxY);
-
+          
           const newZoom = clampZoom(
             typeof value === "function" ? value(zoom) : value
           );
+
+          const resolvedMinX = resolveConstraint(minX, newZoom);
+          const resolvedMaxX = resolveConstraint(maxX, newZoom);
+          const resolvedMinY = resolveConstraint(minY, newZoom);
+          const resolvedMaxY = resolveConstraint(maxY, newZoom);
+          const clampX = clamp(resolvedMinX, resolvedMaxX);
+          const clampY = clamp(resolvedMinY, resolvedMaxY);
 
           const center = maybeCenter
             ? {

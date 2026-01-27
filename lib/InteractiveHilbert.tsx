@@ -22,6 +22,7 @@ interface InteractiveHilbertProps {
     maxExpand?: number;
     zoomSettings?: {
         minZoom: number;
+        setBound?: boolean;
     }
 }
 
@@ -59,11 +60,31 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
         const fraction = props.zoomSettings?.minZoom ?? 0.8;
         const minDim = Math.min(containerSizeState.width, containerSizeState.height);
         
-        // If dimensions are 0 (initial render), assume a safe default (e.g., 800px)
-        const effectiveDim = minDim === 0 ? 800 : minDim;
+        // If dimensions are 0 (initial render), assume a safe default (e.g., 1px) to avoid division by zero
+        // and prevent clamping the initial resetZoom to a large value (like 800px would).
+        const effectiveDim = minDim === 0 ? 1 : minDim;
         
         return effectiveDim * (fraction / size);
     }, [props.zoomSettings, containerSizeState, size]);
+
+    const calculateBounds = useCallback((zoom: number, containerDimension: number) => {
+        //if (!props.zoomSettings?.setBound) return { min: -Infinity, max: Infinity };
+        if (containerDimension === 0) return { min: -Infinity, max: Infinity };
+
+        const margin = 50;
+
+        // min: Right edge of component >= margin
+        // Right Edge = size/2 + x + (size*zoom)/2
+        // x >= margin - size/2 - (size*zoom)/2
+        const min = margin - size / 2 - (size * zoom) / 2;
+
+        // max: Left edge of component <= containerDimension - margin
+        // Left Edge = size/2 + x - (size*zoom)/2
+        // x <= containerDimension - margin - size/2 + (size*zoom)/2
+        const max = containerDimension - margin - size / 2 + (size * zoom) / 2;
+
+        return { min, max };
+    }, [props.zoomSettings?.setBound, size]);
 
     const {
         transform,
@@ -81,7 +102,11 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
             y: -(size / 2 - 500 / 2)
         },
         zoomSensitivity: 0.005,
-        containerSize: size
+        containerSize: size,
+        minX: (z) => calculateBounds(z, containerSizeState.width).min,
+        maxX: (z) => calculateBounds(z, containerSizeState.width).max,
+        minY: (z) => calculateBounds(z, containerSizeState.height).min,
+        maxY: (z) => calculateBounds(z, containerSizeState.height).max,
     });
 
     const prevContainerSize = useRef({ width: 0, height: 0 });
