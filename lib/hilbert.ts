@@ -66,13 +66,12 @@ const bounding_box = (first: bigint, slash: bigint, topPrefix: Address6 | Addres
 }
 
 const xy_from_ip = (ip: bigint, topPrefix: Address4 | Address6) => {
-    let s;
     const maxSubnetSize = topPrefix instanceof Address4 ? 32 : 32;
     if (ip < topPrefix.startAddress().bigInt())
         return [0, 0];
     if (ip > topPrefix.endAddress().bigInt())
         return [0, 0];
-    s = ip - topPrefix.startAddress().bigInt();
+    const s = ip - topPrefix.startAddress().bigInt();
 
     const [x_big, y_big] = hil_xy_from_s(s, (maxSubnetSize - topPrefix.subnetMask)/2);
     

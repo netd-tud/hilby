@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { Address4, Address6 } from "ip-address";
 
-// @ts-ignore
 import './styles.css';
 import { bounding_box } from "./hilbert";
 import { RenderFunction, SubnetConfig } from "./InteractiveHilbert";
@@ -20,40 +19,41 @@ interface AddressBlockProps {
 }
 
 function AddressBlock(props: AddressBlockProps) {
-    const prefixState = useStoreSubscription(props.state, (state) => state.prefixState[props.prefix]);
+    const { prefix, topPrefix: topPrefixStr, maxExpand, parentSplit: propsParentSplit, renderFunctions, state } = props;
+    const prefixState = useStoreSubscription(state, (s) => s.prefixState[prefix]);
     const [split, setSplit] = useState(prefixState?.split ?? false);
 
-    const isIPv6 = props.prefix.includes(":");
+    const isIPv6 = prefix.includes(":");
     const maxSubnetMask = isIPv6 ? 128 : 32;
     const Address = isIPv6 ? Address6 : Address4;
 
-    const block = new Address(props.prefix);
-    const topPrefix = new Address(props.topPrefix);
+    const block = useMemo(() => new Address(prefix), [prefix, Address]);
+    const topPrefixObj = useMemo(() => new Address(topPrefixStr), [topPrefixStr, Address]);
 
     const prefix_length = block.subnetMask;
 
-    const setPrefixSplit = props.state.getState().setPrefixSplit;
-    const setHoverPrefix = props.state.getState().setHoverPrefix;
+    const setPrefixSplit = state.getState().setPrefixSplit;
+    const setHoverPrefix = state.getState().setHoverPrefix;
 
     // memoize event handlers to prevent unnecessary re-renders
     const onClick = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
-        if (prefix_length < maxSubnetMask && prefix_length < topPrefix.subnetMask + props.maxExpand) {
+        if (prefix_length < maxSubnetMask && prefix_length < topPrefixObj.subnetMask + maxExpand) {
             setSplit(true);
         }
-    }, [prefix_length, setSplit]);
+    }, [prefix_length, setSplit, maxSubnetMask, topPrefixObj.subnetMask, maxExpand]);
 
     const onContextMenu = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
-        props.parentSplit(false);
-    }, [props.parentSplit]);
+        propsParentSplit(false);
+    }, [propsParentSplit]);
 
-    const percentage = props.topPrefix === props.prefix ? "100%" : "50%";
+    const percentage = topPrefixStr === prefix ? "100%" : "50%";
 
     // Update split state when prefix state changes
     if (prefixState !== undefined && prefixState.split !== null && prefixState.split !== split) {
         setSplit(prefixState.split);
-        setPrefixSplit(props.prefix, null);
+        setPrefixSplit(prefix, null);
     }
 
     const order = useMemo(() => {
@@ -68,10 +68,10 @@ function AddressBlock(props: AddressBlockProps) {
         }
 
         const bboxes = smaller_nets.map((x) => {
-            const prefix = Address.fromBigInt(x);
+            const subPrefix = Address.fromBigInt(x);
             return {
-                prefix: prefix.correctForm() + `/${new_prefix_length}`,
-                ...bounding_box(x, BigInt(new_prefix_length), topPrefix)
+                prefix: subPrefix.correctForm() + `/${new_prefix_length}`,
+                ...bounding_box(x, BigInt(new_prefix_length), topPrefixObj)
             }
         });
 
@@ -91,7 +91,7 @@ function AddressBlock(props: AddressBlockProps) {
             }
         })
         return order;
-    }, [props.prefix])
+    }, [prefix_length, block, maxSubnetMask, Address, topPrefixObj]);
 
     if (split && prefix_length < maxSubnetMask) {
         return (
@@ -102,23 +102,23 @@ function AddressBlock(props: AddressBlockProps) {
                 height: percentage,
                 width: percentage
             }}
-                key={props.prefix} >
+                key={prefix} >
 
                 {order.map(e =>
                     <AddressBlock
                         prefix={e.prefix}
                         split={false}
-                        topPrefix={props.topPrefix}
+                        topPrefix={topPrefixStr}
                         parentSplit={
-                            (split: boolean) => {
-                                setSplit(split);
-                                setPrefixSplit(props.prefix, null);
+                            (newSplit: boolean) => {
+                                setSplit(newSplit);
+                                setPrefixSplit(prefix, null);
                             }
                         }
-                        renderFunctions={props.renderFunctions}
+                        renderFunctions={renderFunctions}
                         key={e.prefix}
-                        state={props.state}
-                        maxExpand={props.maxExpand}
+                        state={state}
+                        maxExpand={maxExpand}
                     />
                 )}
             </div>
@@ -140,8 +140,8 @@ function AddressBlock(props: AddressBlockProps) {
         if (configPresentInStore && !prefixState.merge) {
             config = { ...config, ...prefixState.config };
         } else {
-            for (const renderFunction of props.renderFunctions) {
-                renderFunction(props.prefix, long_base, block.subnetMask, config);
+            for (const renderFunction of renderFunctions) {
+                renderFunction(prefix, long_base, block.subnetMask, config);
             }
         }
         if (configPresentInStore && prefixState.merge) {
@@ -151,13 +151,13 @@ function AddressBlock(props: AddressBlockProps) {
         }
 
         const onMouseOver = () => {
-            setHoverPrefix(props.prefix, config);
+            setHoverPrefix(prefix, config);
         };
 
         return (
             <div
                 className={"net"}
-                key={props.prefix}
+                key={prefix}
                 style={{ ...config.style, height: percentage, width: percentage, }}
                 onClick={onClick}
                 onMouseOver={onMouseOver}

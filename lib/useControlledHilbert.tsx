@@ -55,7 +55,7 @@ type HilbertStoreInstance = UseBoundStore<StoreApi<HilbertStore>>;
 const stateCreator: StateCreator<HilbertStore, [], []> = (set) => ({
     uuid: self.crypto.randomUUID(),
     resetZoom: () => { console.log("defautl") },
-    zoomToPrefix: (_prefix) => { console.log("defautl"); return true; },
+    zoomToPrefix: () => { console.log("defautl"); return true; },
 
     prefixState: {},
     hoverPrefix: {
@@ -143,7 +143,7 @@ const useControlledHilbert = () => {
     // and use different stores, we need to put the store in a state here. This means we
     // cannot use zustands `create()` as it uses a ref in the background and gets confused.
     // For this reason, we need to ship the subscription helper ourself, to be found in helpers.tsx.
-    const [useHilbertStore, _] = useState(createStore<HilbertStore>(stateCreator));
+    const [useHilbertStore] = useState(createStore<HilbertStore>(stateCreator));
 
     const setPrefixConfig = useHilbertStore.getState().setPrefixConfig;
     const clearPrefixState = useHilbertStore.getState().clearPrefix;

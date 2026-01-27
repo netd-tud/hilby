@@ -151,7 +151,7 @@ export default function usePanZoom({
         });
       }
     },
-    [setTransform]
+    [setTransform, containerSize]
   );
 
   const setPanAndZoom = useCallback(
@@ -281,30 +281,6 @@ export default function usePanZoom({
     ]
   );
 
-  const onGestureStart = useCallback(
-    (event: Event) => {
-      event.preventDefault();
-      setState((state) => ({ ...state, prevZoom: state.transform.zoom }));
-    },
-    [setState]
-  );
-
-  const onGesture = useCallback(
-    // There are no types for Gesture Events sadly
-    (event: WheelEvent) => {
-      event.preventDefault();
-
-      const pointerPosition = getPositionOnElement(containerRef.current, {
-        x: event.pageX,
-        y: event.pageY,
-      });
-      //@ts-ignore
-      setZoom(getState().prevZoom * event.scale, pointerPosition);
-      onZoom(getState().transform);
-    },
-    [setZoom, onZoom, getState]
-  );
-
   const setContainer = useCallback(
     (el: HTMLElement | null) => {
       if (el) {
@@ -329,7 +305,7 @@ export default function usePanZoom({
       }
       containerRef.current = el;
     },
-    [onWheel, onGestureStart, onGesture, disableWheel]
+    [onWheel, disableWheel]
   );
 
   const onTouchStart = useCallback(

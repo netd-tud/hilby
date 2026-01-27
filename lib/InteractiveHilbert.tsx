@@ -10,7 +10,7 @@ import { bounding_box } from "./hilbert";
 type SubnetConfig = {
     style: CSSProperties;
     innerContent: ReactNode[];
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
 }
 
 type RenderFunction = (prefix: string, long: bigint, netmask: number, config: SubnetConfig) => void;
@@ -141,7 +141,7 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
             );
             refresh({});
         }
-    }, [setPanAndZoom, refresh]);
+    }, [setPanAndZoom, refresh, size]);
 
     const zoomToPrefix = useCallback((prefix: string) => {
 
@@ -172,7 +172,7 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
 
             if (!targetAddress.isInSubnet(topPrefixAddress)) return false;
 
-        } catch (error) {
+        } catch {
             return false;
         }
 
@@ -231,28 +231,28 @@ const InteractiveHilbert = (props: InteractiveHilbertProps) => {
         refresh({});
 
         return true;
-    }, [setPrefixSplit, localMaxExpand, refresh, setPanAndZoom])
+    }, [setPrefixSplit, localMaxExpand, refresh, setPanAndZoom, props.topPrefix, size])
 
     // We need to override the functions in the store that `useHilbertStore` exposes, as 
     // the ref will only become available once the curve gets rendered
     useEffect(() => {
         setResetZoom(resetZoom);
         setZoomToPrefix(zoomToPrefix);
-    }, [zoomToPrefix, resetZoom, props.hilbertStore])
+    }, [zoomToPrefix, resetZoom, props.hilbertStore, setResetZoom, setZoomToPrefix])
 
     // Reset zoom once when the curve gets rendered
     useEffect(() => {
         resetZoom();
-    }, [ref.current]);
+    }, [resetZoom]);
 
     // If any config changes, we want to recollapse the prefixes (maybe not on renderFunctions though)
     useEffect(() => {
         resetPrefixes();
-    }, [props.topPrefix, props.renderFunctions, hilbertStore])
+    }, [props.topPrefix, props.renderFunctions, hilbertStore, resetPrefixes])
 
     const content = useMemo(() => {
         return <AddressBlock prefix={props.topPrefix} split={false} topPrefix={props.topPrefix} parentSplit={() => { }} renderFunctions={props.renderFunctions} state={hilbertStore} key={props.topPrefix} maxExpand={localMaxExpand} />;
-    }, [props.topPrefix, props.renderFunctions])
+    }, [props.topPrefix, props.renderFunctions, hilbertStore, localMaxExpand])
 
     return (
         <div ref={ref} style={{ maxHeight: "min(100vh, 100%)", maxWidth: "min(100vw, 100%)", userSelect: "none", overflow: "hidden" }}>

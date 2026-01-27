@@ -3,7 +3,7 @@ import { Address4, Address6 } from "ip-address";
 import { StoreApi } from "zustand";
 
 import { HilbertStore, HilbertStoreInstance } from "./useControlledHilbert";
-import { RenderFunction } from "./InteractiveHilbert";
+import { RenderFunction, SubnetConfig } from "./InteractiveHilbert";
 
 type KeyBindingsSettings = {
     originalTopPrefix: string;
@@ -14,11 +14,11 @@ type KeyBindingsSettings = {
 }
 
 const useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyBindingsSettings) => {
-
-    const [topPrefix, setTopPrefix] = useState(settings.originalTopPrefix);
+    const { originalTopPrefix, minLevel, maxLevel, zoomInKey, zoomOutKey } = settings;
+    const [topPrefix, setTopPrefix] = useState(originalTopPrefix);
 
     const keyhandler = useCallback<KeyboardEventHandler>((e) => {
-        if (e.key === (settings.zoomInKey ?? "e")) {
+        if (e.key === (zoomInKey ?? "e")) {
 
             const hoverPrefix = hilbertStore.getState().hoverPrefix;
             const prefix = hoverPrefix.prefix;
@@ -27,18 +27,18 @@ const useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyB
             // We only support even prefixes anyways
             if (netmaskSize % 2 !== 0) return;
 
-            if (netmaskSize >= (settings.maxLevel ?? 32)) return;
+            if (netmaskSize >= (maxLevel ?? 32)) return;
 
             setTopPrefix(prefix);
         }
 
-        if (e.key === (settings.zoomOutKey ?? "q")) {
+        if (e.key === (zoomOutKey ?? "q")) {
             const isIPv6 = topPrefix.includes(":");
             const baseClass = isIPv6 ? Address6 : Address4;
             const top = new baseClass(topPrefix);
 
             const maxMaskSize = isIPv6 ? 128 : 32;
-            if (top.subnetMask < (settings.minLevel ?? 0) + 2) return;
+            if (top.subnetMask < (minLevel ?? 0) + 2) return;
 
             const mask = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFn << BigInt(maxMaskSize - top.subnetMask + 2);
             const oneUp = baseClass.fromBigInt(top.startAddress().bigInt() & mask).correctForm() + "/" + (top.subnetMask - 2).toString();
@@ -46,14 +46,14 @@ const useEnableKeyBindings = (hilbertStore: HilbertStoreInstance, settings: KeyB
         }
     
 
-    }, [settings.originalTopPrefix, hilbertStore,topPrefix])
+    }, [hilbertStore, topPrefix, zoomInKey, maxLevel, zoomOutKey, minLevel])
 
     return [topPrefix, setTopPrefix, keyhandler] as const;
 }
 
 const basicColorRendering: (colorProperty: string, minValue: number, maxValue: number) => RenderFunction = (colorProperty: string, minValue: number, maxValue: number) => {
 
-    return (_prefix: string, _base: bigint, netmask: number, config: any) => {
+    return (_prefix: string, _base: bigint, netmask: number, config: SubnetConfig) => {
         let color = "(0,0,0)";
 
         const value = config.properties[colorProperty] as number;
@@ -134,7 +134,7 @@ const useStoreSubscription = <T,>(store: StoreApi<HilbertStore>, selector: (stat
         })
 
         return unsubscribe
-    }, [selector])
+    }, [selector, store])
 
     return state
 }
