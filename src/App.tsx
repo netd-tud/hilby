@@ -1,47 +1,38 @@
 import './App.css'
 
-import { useCallback, useDeferredValue, useEffect, useState } from 'react'
-import { AppShell, Button, Container, Divider, Group, Image, Input, Loader, Paper, Switch, Text, Title, Stack, Alert } from "@mantine/core";
-import { useDebouncedState,useDebouncedCallback, useDisclosure } from '@mantine/hooks';
-import { ip2long, long2ip } from 'netmask';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { AppShell, Container, Loader } from "@mantine/core";
+import { useDebouncedCallback, useDisclosure, useDebouncedState } from '@mantine/hooks';
 import { useQuery } from "@tanstack/react-query";
 import { InteractiveHilbert, RenderFunction, useControlledHilbert, useEnableKeyBindings } from "../";
-import { FaBook, FaGithub, FaInfoCircle } from "react-icons/fa";
-import { IoWarningOutline } from "react-icons/io5";
 import { Address6 } from 'ip-address';
-import AsyncSelect from 'react-select/async';
-import { DatePickerInput } from '@mantine/dates';
-import '@mantine/dates/styles.css'
 
-
-import Worker from './parse-api-data?worker';
-
-import { newAdd, coloring, getPercentage } from './rendering-functions';
-
-import ripeLogo from "./ripe_stat_logo.png";
-import routeviewsLogo from "./routeviews_logo.png";
+import { newAdd, coloring, getPercentage, createColorBasedOnDensity } from './rendering-functions';
+import { getPeeringDBData, getAnnouncedPrefixes } from './parse-api-data';
 
 import { baseColor } from './constants';
-import Legend from './Legend';
 import TutorialModal from './TutorialModal';
+
+import Header from './components/Header';
+import Footer from './components/Footer';
+import ControlPanel from './components/ControlPanel';
+import { useHilbyWorker } from './hooks/useHilbyWorker';
 
 function App() {
 
     const [opened, { open, close }] = useDisclosure(false);
 
     const [ipv6, setipv6] = useState(false);
-    const [worker, setWorker] = useState<Worker | null>(null);
-    const [usedData, setUsedData] = useState<{ maps: Record<number, Record<string, number>>, raw: Uint8Array } | Address6[] | null>(null);
+    // Use custom hook for worker management
+    const { usedData, setUsedData, noData, parsing, processData } = useHilbyWorker();
 
     const [selectedAS, setSelectedAS] = useDebouncedState("16509", 1000);
     const deferredUsedData = useDeferredValue(usedData);
 
-    const [hilbertStore, prefixManipulation, zoomManipulation, _useHoveredPrefix] = useControlledHilbert();
+    const [hilbertStore, prefixManipulation, zoomManipulation] = useControlledHilbert();
     const [topPrefix, setTopPrefix, keyHandler] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
 
-    const [noData, setNoData] = useState(false);
-    const [parsing, setParsing] = useState(false);
-    const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
+    const [source, setSource] = useState<"ripe" | "routeviews">("ripe");
     const [zoomTarget, setZoomTarget] = useState<string>("");
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
@@ -49,92 +40,20 @@ function App() {
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [lockSource, setLockSource] = useState<boolean>(false);
 
-    const getName = async (inputValue: string, callback: (options: {label: string, value: number}[]) => void) => {
-        
-        const tryInt = parseInt(inputValue);
-
-
-        let response;
-
-        if (!isNaN(tryInt)) {
-            response = await fetch(`https://www.peeringdb.com/api/net?asn=${inputValue.toLowerCase()}&limit=10`);
-            if (response.status === 404)  {
-                callback([{
-                    label: `AS${tryInt}`,
-                    value: tryInt
-                }])
-                return;
-            }
-
-        } else {
-            if (inputValue.length < 3) return [];
-            
-            response = await fetch(`https://www.peeringdb.com/api/net?name_search=${inputValue.toLowerCase()}&limit=10`);
-            
-        } 
-        const value =  (await response.json())["data"].map((e: Record<string, string | number>) => {
-            if (e !== null && typeof(e) === "object" && e.hasOwnProperty("name") && e.hasOwnProperty("asn")) {
-                return {
-                    label: e["name"] + ` (AS${e["asn"]})`, 
-                    value: e["asn"]
-                }
-            } else {
-                return;
-            }
-        });
-        console.log(value)
-        callback(value);
-    }
-    const debouncedGetName = useDebouncedCallback(getName, 1000);
+    const debouncedGetName = useDebouncedCallback(getPeeringDBData, 1000);
 
     // Firefox can't draw fonts big enough to properly show the content of a prefix otherwise
     const maxExpand = navigator.userAgent.toLowerCase().includes("firefox") ? 20 : 24;
 
+    // Calculate loading state
     let isLoading = true;
-
-    useEffect(() => {
-        const workerInstance = new Worker();
-        setWorker(workerInstance);
-
-        workerInstance.onmessage = function (e) {
-            setParsing(false);
-            if (e.data.ipv6) {
-                const collection: Address6[] = [];
-                if (e.data.data.length === 0) {
-                    setNoData(true);
-                } else {
-                    setNoData(false);
-                }
-
-                for (const ip of e.data.data) {
-                    collection.push(new Address6(ip));
-
-                }
-                setUsedData(collection);
-            } else {
-                if (e.data.data.raw.length === 0) {
-                    setNoData(true);
-                } else {
-                    setNoData(false);
-                }
-
-                setUsedData(e.data.data);
-            }
-        };
-
-        return () => {
-            workerInstance.terminate();
-        };
-    }, [setNoData, setUsedData]);
-
     if (usedData !== null) {
         if (ipv6) {
             isLoading = (usedData as Address6[]).length === 0 && !noData;
         } else {
-            if (!usedData.hasOwnProperty("raw")) {
+            if (!Object.prototype.hasOwnProperty.call(usedData, "raw")) {
                 isLoading = true;
             } else {
-
                 isLoading = (usedData as { maps: Record<number, Record<string, number>>, raw: Uint8Array }).raw.length === 0;
             }
         }
@@ -142,101 +61,20 @@ function App() {
         isLoading = true;
     }
 
-    const getAnnouncedPrefixes = useCallback(async (as: string): Promise<string[]> => {
-
-        if (source === "routeviews") {
-            const response = await fetch(`https://api.routeviews.org/guest/asn/${as}`);
-            return await response.json();
-        }
-        if (source === "ripe") {
-
-            let response;
-
-            console.log(selectedDate)
-
-            if (selectedDate !== null) {
-
-                response = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS${as}&starttime=${selectedDate}T00:00&endtime=${selectedDate}T22:00`)
-
-            } else {
-                response = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS${as}`)
-            }
-            const parsedResponse = await response.json();
-
-            return parsedResponse["data"]["prefixes"].map((v: { prefix: string }) => v["prefix"]);
-        }
-        return [];
-
-    }, [source, selectedDate])
-
     const result = useQuery({
         queryKey: [selectedAS, source, selectedDate],
-        queryFn: () => getAnnouncedPrefixes(selectedAS),
+        queryFn: () => getAnnouncedPrefixes(source, selectedAS, selectedDate),
     })
 
+    // Process data when query result changes
     useEffect(() => {
-        if (!result.isSuccess) return;
-        setParsing(true);
-        worker?.postMessage({ ipv6: ipv6, data: result.data });
-    }, [result.data, result.isSuccess, ipv6, worker]);
+        if (!result.isSuccess || !result.data) return;
+        processData(result.data, ipv6);
+    }, [result.data, result.isSuccess, ipv6, processData]);
 
-    const colorBasedOnDensity: RenderFunction = useCallback((prefix: string, long: bigint, netmask: number, config) => {
-        if (deferredUsedData === null || deferredUsedData === undefined) return;
+    const colorBasedOnDensity = useMemo(() => createColorBasedOnDensity(deferredUsedData, ipv6), [deferredUsedData, ipv6]);
 
-        let maxNumberOfSubnets = 0;
-        let actualNumberOfSubnets = 0;
-
-        if (!ipv6) {
-            // Required since we might be called in the transition from IPv6 to IPv4
-            if (prefix.includes(":")) return;
-
-            const data = deferredUsedData as { maps: Record<number, Record<string, number>>, raw: Uint8Array };
-            if (!data.raw || data.raw.length === 0) return;
-
-            if (netmask === 0) {
-                for (const entry of Object.values(data.maps[2])) {
-                    actualNumberOfSubnets += entry;
-                }
-            } else if (netmask < 18) {
-                actualNumberOfSubnets = data.maps[netmask][prefix] ?? 0;
-            } else {
-                for (let i = 0; i < 2 ** (24 - netmask); i++) {
-                    if (data.raw[Number((long >> 8n)) + i] === 1) {
-                        actualNumberOfSubnets++;
-                    }
-                }
-            }
-
-            maxNumberOfSubnets = 2 ** (24 - netmask);
-
-        } else {
-            // Required since we might be called in the transition from IPv4 to IPv6
-            if (!prefix.includes(":")) return;
-
-            const data = deferredUsedData as Address6[];
-            if (!data.length || data.length === 0) return;
-
-            const address = new Address6(prefix);
-
-            for (const dataPrefix of data) {
-
-                if (dataPrefix.isInSubnet(address)) {
-                    const n_of_48s = 2 ** (48 - dataPrefix.subnetMask)
-                    actualNumberOfSubnets += n_of_48s;
-                } else if (address.isInSubnet(dataPrefix)) {
-                    actualNumberOfSubnets = 2 ** (48 - netmask);
-                }
-            }
-
-            maxNumberOfSubnets = 2 ** (48 - netmask);
-        }
-
-        const normalizedValue = actualNumberOfSubnets / Math.max(maxNumberOfSubnets, 1);
-        config.properties["subnets"] = normalizedValue;
-
-    }, [deferredUsedData, isLoading, ipv6])
-
-    const renderFunctions: RenderFunction[] = [newAdd, colorBasedOnDensity, coloring, getPercentage];
+    const renderFunctions: RenderFunction[] = useMemo(() => [newAdd, colorBasedOnDensity, coloring, getPercentage], [colorBasedOnDensity]);
 
     let parsingText = "";
 
@@ -262,249 +100,44 @@ function App() {
         <>
             <AppShell >
                 {/* Header Section */}
-                <Container size="xl" py="md">
-                    <Group justify="space-between">
-                        <div>
-                            <Title order={1}>Hilby</Title>
-                            <Text c="dimmed" size="lg">Hilbert Interactive Prefix Plots</Text>
-                        </div>
-                        <Group justify="center">
-                            <Group mr={"xl"}>
-                                <Text size="md" mr={-15}>Live Data provided by</Text>
-                                <a target="_blank" href="https://stat.ripe.net/">
-                                    <Image src={ripeLogo} h={30} w={150}/>
-                                </a>
-                                <a target="_blank" href="https://www.routeviews.org/routeviews/">
-                                    <Image src={routeviewsLogo} h={30} w={30}/>
-                                </a>
-                                 <a target="_blank" href="https://www.peeringdb.com/" style={{marginLeft: "10px"}}>
-                                    <Image src="https://www.peeringdb.com/s/2.71.0//pdb-logo-coloured.png" h={35} w={150}/>
-                                </a>
-                            </Group>
-
-                            <Group>
-                                <Button.Group mr={"lg"}>
-                                    <Button component="a" variant="light" leftSection={<FaGithub />}
-                                        target="_blank" href="https://github.com/netd-tud/hilby">
-                                        GitHub
-                                    </Button>
-                                    <Button variant="light" leftSection={<FaBook />} component='a'
-                                        target="_blank" href="https://github.com/netd-tud/hilby/blob/master/README.md">
-                                        Docs
-                                    </Button>
-                                    <Button variant="light" onClick={open} leftSection={<FaInfoCircle />}>
-                                        Shortcuts
-                                    </Button>
-                                </Button.Group>
-                            </Group>
-                        </Group>
-                    </Group>
-
-                </Container>
+                <Header openTutorial={open} />
 
                 <AppShell.Main>
                     {/* Control Panel */}
                     <Container size="xl" py="md">
-                        {
-                            selectedDate !== null && <Alert variant="light" color="yellow" title="Potentially Inaccurate AS Names" icon={<IoWarningOutline/>} mb={"md"}>
-                                Please note that the AS names shown are the current names according to PeeringDB. Therefore, the displayed name may not match the actual name of the AS at the selected date.
-                                </Alert>
-                        }
-                        <Paper shadow="sm" p="md" mb="md">
-                            <Stack gap="md">
-                                <Group justify='space-between'>
-                                    <Group>
-                                        <Group>
-                                            <Text fw={700}>AS:</Text>
-                                            <div
-                                                style={{width:"250px"}}
-                                            >
-
-                                              <AsyncSelect cacheOptions 
-                                              defaultValue={[{label: "Amazon.com (AS16509)", value: 16509}]} 
-                                              loadOptions={debouncedGetName}
-                                                 onChange={(newValue) => {
-                                                     if (newValue === null) return;
-                                                     console.log(newValue.value)
-                                                     setSelectedAS(newValue.value.toString())
-                                                    }}
-                                                    components={{
-                                                        DropdownIndicator: () => null,
-                                                        IndicatorSeparator:() => null
-                                                    }}
-                                                    styles={{
-                                                        input: (baseStyle, _state) => ({
-                                                            ...baseStyle,
-                                                            height: "31.5px",
-                                                        }),
-                                                        control: (baseStyle, _state) => ({
-                                                            ...baseStyle,
-                                                            borderColor: "var(--mantine-color-gray-4)"
-
-                                                        })
-                                                    }}
-                                                    
-                                                    />
-                                                    </div>
-
-                                            {/* <Input
-                                                defaultValue={selectedAS}
-                                                style={{ fontWeight: "700" }}
-                                                fs={"1rem"}
-                                                size='md'
-                                                disabled={parsingText !== ""}
-                                                onChange={(event) => setSelectedAS(event.currentTarget.value)}
-                                            ></Input> */}
-                                            {/* <Text fw={700} w={"90px"}>AS{selectedAS}</Text> */}
-                                            <DatePickerInput
-                                                placeholder="Go back in time"
-                                                value={selectedDate}
-                                                onChange={handleDateSelect}
-                                                clearable
-                                                size="md"
-                                                w="210px"
-/>
-                                        </Group>
-                                        <Group>
-                                            <Text fw={700}>Protocol:</Text>
-                                            <Switch onChange={(e) => {
-                                                setipv6(e.currentTarget.checked);
-                                                setUsedData(null);
-                                                setCollapseStatus(false);
-                                                setTopPrefix(e.currentTarget.checked ? "2000::/4" : "0.0.0.0/0");
-                                            }
-                                            }
-                                                disabled={isLoading}
-                                                checked={ipv6}
-                                                onLabel="IPv6" offLabel="IPv4"
-                                                size='lg'
-                                                color={baseColor}
-                                                styles={{
-                                                    track: {
-                                                        backgroundColor: "oklch(0.55 0.1357 267.88)",
-                                                        borderColor: "oklch(0.55 0.1357 267.88)",
-                                                        color: "white",
-                                                        '&[data-checked]': {
-                                                            backgroundColor: "oklch(0.55 0.1357 267.88)",
-                                                            borderColor: "oklch(0.55 0.1357 267.88)",
-                                                        }
-                                                    }
-                                                }}
-
-                                            />
-                                        </Group>
-                                        <Group>
-                                            <Text fw={700}>Data Provider:</Text>
-                                            <Switch
-                                                onChange={() => {
-                                                    setSource(source === "routeviews" ? "ripe" : "routeviews")
-                                                }}
-                                                disabled={isLoading || lockSource}
-                                                checked={source === "ripe"}
-                                                onLabel="RIPEstat RIS" offLabel="Routeviews"
-                                                size='lg'
-                                                color={baseColor}
-                                                styles={{
-                                                    track: {
-                                                        backgroundColor: "oklch(0.55 0.1357 267.88)",
-                                                        borderColor: "oklch(0.55 0.1357 267.88)",
-                                                        color: "white",
-                                                        '&[data-checked]': {
-                                                            backgroundColor: "oklch(0.55 0.1357 267.88)",
-                                                            borderColor: "oklch(0.55 0.1357 267.88)",
-                                                        }
-                                                    }
-                                                }}
-
-                                            />
-                                        </Group>
-                                    </Group>
-                                    <Group>
-                                        {/* Action buttons */}
-                                        {!ipv6 && <Button color={baseColor}
-                                            size='md'
-                                            w="152px"
-                                            onClick={() => {
-                                                if (!collapseStatus) {
-                                                    const base = ip2long("0.0.0.0");
-                                                    const prefixes: string[] = [];
-    
-                                                    for (let i = 0; i < 8; i += 2) {
-                                                        let itr = base;
-                                                        const ctr = (1 << (32 - i));
-                                                        for (let j = 0; j < (1 << (i)) * 0.875; j++) {
-                                                            const prefix = long2ip(itr) + "/" + i.toString();
-                                                            prefixes.push(prefix)
-                                                            itr += ctr;
-                                                        }
-                                                    }
-    
-                                                    prefixManipulation.setPrefixSplit(prefixes, true);
-                                                    setCollapseStatus(true);
-                                                } else {
-                                                    prefixManipulation.setPrefixSplit(topPrefix, false);
-                                                    setCollapseStatus(false);
-                                                }
-                                            }}>
-                                            {!collapseStatus ? "Expand all /8s" : "Collapse to /0"}
-                                        </Button>}
-                                        {ipv6 && <Button color={baseColor}
-                                            size='md'
-                                            w="152px"
-                                            onClick={() => {
-                                                if (!collapseStatus) {
-                                                    const base = new Address6(topPrefix).bigInt();
-                                                    const prefixes: string[] = [];
-                                                    for (let i = 4n; i < 10n; i += 2n) {
-                                                        let itr = base;
-                                                        const ctr = (1n << (128n - i));
-                                                        for (let j = 0n; j < (1n << (i - 4n)); j++) {
-                                                            const prefix = Address6.fromBigInt(itr).correctForm() + "/" + i.toString();
-                                                            prefixes.push(prefix)
-                                                            itr += ctr;
-                                                        }
-                                                    }
-    
-                                                    prefixManipulation.setPrefixSplit(prefixes, true);
-                                                    setCollapseStatus(true);
-                                                } else {
-                                                    prefixManipulation.setPrefixSplit(topPrefix, false);
-                                                    setCollapseStatus(false);
-                                                }
-                                            }}>
-                                            {!collapseStatus ? "Expand all /10s" : "Collapse to /0"}
-                                        </Button>}
-                                        <Button color={baseColor} size='md' onClick={() => {
-                                            zoomManipulation.resetZoom();
-                                        }}>
-                                            Reset Zoom
-                                        </Button>
-                                    </Group>
-                                </Group>
-
-                                <Divider />
-
-                                <Group justify="space-between">
-                                    <Group w="100%">
-                                        <Legend />
-                                        <Group>
-                                            <Text> Search for prefix:</Text>
-                                            <Input
-                                                value={zoomTarget}
-                                                onChange={(e) => { setZoomTarget(e.currentTarget.value); setZoomStatus(true); }} onKeyUp={(e) => {
-                                                    if (e.key === "Enter") {
-                                                        const result = zoomManipulation.zoomToPrefix(zoomTarget);
-                                                        setZoomStatus(result);
-                                                    }
-                                                }}
-                                                error={!zoomStatus}
-                                            ></Input>
-                                        </Group>
-                                        <Text ml="auto"> {parsingText}</Text>
-                                    </Group>
-                                </Group>
-                            </Stack>
-                        </Paper>
+                        <ControlPanel
+                            dataSource={{
+                                selectedAS,
+                                setSelectedAS,
+                                debouncedGetName,
+                                selectedDate,
+                                handleDateSelect,
+                                source,
+                                setSource,
+                                lockSource,
+                                ipv6,
+                                setIpv6: setipv6
+                            }}
+                            mapControls={{
+                                collapseStatus,
+                                setCollapseStatus,
+                                topPrefix,
+                                setTopPrefix,
+                                prefixManipulation,
+                                zoomManipulation,
+                                setUsedData
+                            }}
+                            search={{
+                                target: zoomTarget,
+                                setTarget: setZoomTarget,
+                                status: zoomStatus,
+                                setStatus: setZoomStatus
+                            }}
+                            ui={{
+                                isLoading,
+                                parsingText
+                            }}
+                        />
                     </Container>
 
                     {/* Main Hilbert Plot */}
@@ -517,37 +150,7 @@ function App() {
                     </Container>
                 </AppShell.Main>
 
-                <Container size="xl" py="sm">
-                    <Group justify='center' mb="sm">
-                        <Group>
-                            <Text size="md">
-                                Built at <a
-                                    style={{
-                                        color: baseColor,
-                                        textDecorationLine: "none",
-                                        fontWeight: 700
-                                    }}
-                                    href="https://netd.inf.tu-dresden.de/">
-                                    TUD NETD
-                                </a>
-                            </Text>
-                        </Group>
-                        <Text>|</Text>
-                        <Group>
-                            <Text size="md">
-                                Presented at <a
-                                    style={{
-                                        color: baseColor,
-                                        textDecorationLine: "none",
-                                        fontWeight: 700
-                                    }}
-                                    href="https://doi.org/10.1145/3744969.3748402">
-                                    SIGCOMM
-                                </a>
-                            </Text>
-                        </Group>
-                    </Group>
-                </Container>
+                <Footer />
             </AppShell>
             <TutorialModal opened={opened} close={close} />
         </>

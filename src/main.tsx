@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import './App.css'
 
 import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
 import App from './App.tsx'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
