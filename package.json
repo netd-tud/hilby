@@ -26,7 +26,10 @@
     "lint": "eslint .",
     "buildDemo": "npm run build && vite build -c vite.demo.config.ts",
     "buildPages": "npm run build && vite build -c vite.pages.config.ts",
+    "buildPlayground": "npm run build && vite build -c vite.playground.config.ts",
+    "testPlayground": "npm run build && vite -c vite.playground.config.ts",
     "previewDemo": "npm run buildDemo && vite preview --outDir demo",
+    "previewPlayground": "npm run buildPlayground && vite preview --outDir dist-playground",
     "testDemo": "vite -c vite.demo.config.ts",
     "prepublishOnly": "npm run build"
   },
@@ -60,6 +63,7 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "chroma-js": "^3.2.0",
     "dayjs": "^1.11.18",
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
