@@ -1,5 +1,7 @@
-import { FileButton, Button, NativeSelect, NumberInput, Checkbox, Group, Stack, Text, Title, Box } from '@mantine/core';
-import { useState } from 'react';
+import { FileButton, Button, NativeSelect, NumberInput, Checkbox, Group, Stack, Text, Title, Box, SegmentedControl, ColorInput } from '@mantine/core';
+import { useState, useEffect } from 'react';
+import { Scale } from 'chroma-js';
+import { Legend } from './Legend';
 
 interface SidebarProps {
     onUpload: (content: string) => void;
@@ -15,14 +17,33 @@ interface SidebarProps {
         resolution: number;
         coveringPrefix: string;
     } | null;
+    colorScale?: Scale | null;
+    currentColors: string[];
+    onColorsChange: (colors: string[]) => void;
 }
 
-export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing, isExpanded, hasData, metadata }: SidebarProps) {
+export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing, isExpanded, hasData, metadata, colorScale, currentColors, onColorsChange }: SidebarProps) {
     const [file, setFile] = useState<File | null>(null);
     const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min'>('mean');
     const [defaultValue, setDefaultValue] = useState<number>(0);
     const [propagate, setPropagate] = useState<boolean>(true);
     const [ignoreDefaultInAggregation, setIgnoreDefaultInAggregation] = useState<boolean>(true);
+
+    const isDefaultColors = currentColors.length === 3 && currentColors[0] === 'green' && currentColors[1] === 'yellow' && currentColors[2] === 'red';
+    const [mode, setMode] = useState<string>(isDefaultColors ? 'default' : 'custom');
+    
+    const [customStart, setCustomStart] = useState<string>(!isDefaultColors && currentColors.length >= 1 ? currentColors[0] : '#fafa6e');
+    const [customEnd, setCustomEnd] = useState<string>(!isDefaultColors && currentColors.length >= 2 ? currentColors[currentColors.length - 1] : '#2A4858');
+
+    useEffect(() => {
+        if (isDefaultColors) {
+            setMode('default');
+        } else {
+            setMode('custom');
+            if (currentColors.length >= 1) setCustomStart(currentColors[0]);
+            if (currentColors.length >= 2) setCustomEnd(currentColors[currentColors.length - 1]);
+        }
+    }, [currentColors, isDefaultColors]);
 
     const handleFileChange = (payload: File | null) => {
         setFile(payload);
@@ -53,6 +74,25 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
         onSettingsChange(newSettings);
     };
 
+    const handleModeChange = (val: string) => {
+        setMode(val);
+        if (val === 'default') {
+            onColorsChange(["green", "yellow", "red"]);
+        } else {
+            onColorsChange([customStart, customEnd]);
+        }
+    };
+
+    const handleCustomColorChange = (pos: 'start' | 'end', val: string) => {
+        if (pos === 'start') {
+            setCustomStart(val);
+            onColorsChange([val, customEnd]);
+        } else {
+            setCustomEnd(val);
+            onColorsChange([customStart, val]);
+        }
+    };
+
     return (
         <Stack p="md" gap="lg">
             <Title order={3}>Playground</Title>
@@ -72,21 +112,25 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
                     data={['mean', 'sum', 'max', 'min']}
                     value={aggregation}
                     onChange={(event) => handleSettingsUpdate({ aggregation: event.currentTarget.value as 'sum' | 'mean' | 'max' | 'min' })}
+                    disabled={parsing}
                 />
                 <NumberInput
                     label="Default Value"
                     value={defaultValue}
                     onChange={(value) => handleSettingsUpdate({ defaultValue: Number(value) })}
+                    disabled={parsing}
                 />
                 <Checkbox
                     label="Propagate value to subnets"
                     checked={propagate}
                     onChange={(event) => handleSettingsUpdate({ propagate: event.currentTarget.checked })}
+                    disabled={parsing}
                 />
                 <Checkbox
                     label="Ignore Default Value in Aggregation"
                     checked={ignoreDefaultInAggregation}
                     onChange={(event) => handleSettingsUpdate({ ignoreDefaultInAggregation: event.currentTarget.checked })}
+                    disabled={parsing}
                 />
             </Stack>
 
@@ -98,6 +142,40 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
                         <Text size="xs"><b>Resolution:</b> /{metadata.resolution}</Text>
                         <Text size="xs"><b>Range:</b> {metadata.minVal.toFixed(2)} - {metadata.maxVal.toFixed(2)}</Text>
                     </Box>
+                    {colorScale && (
+                        <>
+                            <Legend scale={colorScale} />
+                            <Stack gap="xs" mt="xs">
+                                <Text size="sm" fw={500}>Coloring</Text>
+                                <SegmentedControl
+                                    value={mode}
+                                    onChange={handleModeChange}
+                                    data={[
+                                        { label: 'Default', value: 'default' },
+                                        { label: 'Custom', value: 'custom' },
+                                    ]}
+                                />
+                                {mode === 'custom' && (
+                                    <Group grow>
+                                        <ColorInput 
+                                            placeholder="Min Color" 
+                                            value={customStart} 
+                                            onChange={(val) => handleCustomColorChange('start', val)} 
+                                            format="hex"
+                                            swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
+                                        />
+                                        <ColorInput 
+                                            placeholder="Max Color" 
+                                            value={customEnd} 
+                                            onChange={(val) => handleCustomColorChange('end', val)} 
+                                            format="hex"
+                                            swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
+                                        />
+                                    </Group>
+                                )}
+                            </Stack>
+                        </>
+                    )}
                 </Stack>
             )}
 
@@ -105,7 +183,7 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
                 <Text fw={500}>Controls</Text>
                 <Stack gap="xs">
                     <Group grow>
-                        <Button onClick={onExpand} variant="light">{isExpanded ? "Collapse to /0" : "Expand to /8"}</Button>
+                        <Button onClick={onExpand} variant="filled">{isExpanded ? "Collapse to /0" : "Expand to /8"}</Button>
                         <Button onClick={onReset} variant="outline">Reset Zoom</Button>
                     </Group>
                 </Stack>

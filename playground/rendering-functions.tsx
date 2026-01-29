@@ -1,6 +1,6 @@
 import { RenderFunction } from "../lib/main";
-import { PlaygroundData } from "./hooks/usePlaygroundWorker";
-
+import { PlaygroundData, TypedArray } from "./hooks/usePlaygroundWorker";
+import chroma from "chroma-js";
 /**
  * Creates a render function that populates config.properties['value'] based on the playground data.
  */
@@ -47,42 +47,44 @@ export const createDataLookupFunction = (
     }
 };
 
+export const createColorScale = (raw: TypedArray, colors: string[] = ["green", "yellow", 'red']) => {
+    const samples: number[] = [];
+    for (let i = 0; i <= raw.length; i += raw.length / 1000) {
+        const value = raw[Math.floor(i)];
+        if (value !== 0)
+            samples.push(value);
+    }
+
+    return chroma.scale(colors).domain(samples.sort((a,b) => a -b), 25, 'Q');
+}
+
 /**
  * A render function that colors the subnet based on the 'value' property.
  */
 export const createValueColoringFunction = (
     min: number,
-    max: number,
+    _max: number,
+    quantileScale: chroma.Scale<chroma.Color>
 ): RenderFunction => {
     return (_prefix, _long, _netmask, config) => {
         const value = config.properties['value'] as number;
         if (value === undefined) return;
 
+        const color = quantileScale(value);
+
         // If value is effectively "zero" or "default", use a neutral color
         // (Note: user can define default, so we check against min/max if appropriate, 
         // but usually 0 is the "empty" signal)
         if (value === 0 && min !== 0) {
-            config.style.backgroundColor = '#f8f9fa';
-            config.style.color = '#dee2e6';
+            config.style.backgroundColor = "#000000";
+            config.style.color = "#FFFFFF";
             return;
         }
 
-        // Color Scale
-        // We use a simple linear scale for now. 
-        // 0% -> Blueish, 100% -> Redish
-        const range = max - min || 1;
-        const t = Math.max(0, Math.min(1, (value - min) / range));
-        
-        // Let's use HSL to create a nice gradient
-        // Hue: 220 (blue) to 0 (red)
-        const hue = 220 - (t * 220);
-        // Lightness: higher value = slightly darker/richer?
-        const lightness = 50 + ( (1-t) * 20 ); // 50% to 70%
-        
-        config.style.backgroundColor = `hsl(${hue}, 80%, ${lightness}%)`;
+        config.style.backgroundColor = color.hex();
         
         // Text color for contrast
-        config.style.color = lightness < 40 || hue < 40 ? 'white' : 'black';
+        config.style.color = color.luminance() < 0.5 ? 'white' : 'black';
     }
 };
 

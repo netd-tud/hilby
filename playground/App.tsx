@@ -3,7 +3,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { InteractiveHilbert, useControlledHilbert, useEnableKeyBindings } from '../lib/main';
 import { Sidebar } from './components/Sidebar';
 import { usePlaygroundWorker } from './hooks/usePlaygroundWorker';
-import { createDataLookupFunction, createValueColoringFunction, valueText } from './rendering-functions';
+import { createDataLookupFunction, createValueColoringFunction, valueText, createColorScale } from './rendering-functions';
 import { generateIPv4ExpansionPrefixes } from '@/utils/prefix-utils';
 import './App.css';
 
@@ -21,17 +21,24 @@ function App() {
     const [defaultValue, setDefaultValue] = useState<number>(0);
     const [propagate, setPropagate] = useState<boolean>(true);
     const [ignoreDefaultInAggregation, setIgnoreDefaultInAggregation] = useState<boolean>(true);
+    const [colors, setColors] = useState<string[]>(["green", "yellow", "red"]);
 
     // Prepare render functions
     const dataRenderer = useMemo(() => createDataLookupFunction(deferredData), [deferredData]);
     
+    const colorScale = useMemo(() => {
+        if (!deferredData) return null;
+        return createColorScale(deferredData.raw, colors);
+    }, [deferredData, colors]);
+
     const visualRenderer = useMemo(() => {
-        if (!deferredData) return () => {};
+        if (!deferredData || !colorScale) return () => {};
         return createValueColoringFunction(
             deferredData.metadata.minVal, 
             deferredData.metadata.maxVal, 
+            colorScale
         );
-    }, [deferredData]);
+    }, [deferredData, colorScale]);
 
     // We combine our data calculator + visualizers
     const renderFunctions = useMemo(() => [dataRenderer, visualRenderer, valueText], [dataRenderer, visualRenderer]);
@@ -47,10 +54,11 @@ function App() {
         }
     };
 
-    const handleSettingsChange = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean }) => {
+    const handleSettingsChange = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean; ignoreDefaultInAggregation: boolean; }) => {
         setAggregation(settings.aggregation);
         setDefaultValue(settings.defaultValue);
         setPropagate(settings.propagate);
+        setIgnoreDefaultInAggregation(settings.ignoreDefaultInAggregation)
     };
 
     const [lastContent, setLastContent] = useState<string | null>(null);
@@ -80,7 +88,7 @@ function App() {
     return (
         <AppShell
             padding="md"
-            navbar={{ width: 300, breakpoint: 'sm' }}
+            navbar={{ width: 400, breakpoint: 'sm' }}
         >
             <AppShell.Navbar>
                 <Sidebar
@@ -95,12 +103,15 @@ function App() {
                     isExpanded={collapseStatus}
                     hasData={!!data}
                     metadata={data?.metadata}
+                    colorScale={colorScale}
+                    currentColors={colors}
+                    onColorsChange={setColors}
                 />
             </AppShell.Navbar>
 
             <AppShell.Main>
                 <Container fluid h="100%" p={0} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                     <div className="hilbert-container" tabIndex={0} onKeyUp={keyHandler} style={{ flexGrow: 1, position: 'relative' }}>
+                     <div className="hilbert-container" tabIndex={0} onKeyUp={keyHandler} style={{ flexGrow: 1, position: 'relative', height: "95vh" }}>
                         {isParsing && (
                             <Box style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 10 }}>
                                 <Loader size="lg" />

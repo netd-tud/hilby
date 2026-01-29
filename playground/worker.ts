@@ -171,6 +171,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
         for (const level in maps) {
             tempMaps[level] = {};
         }
+        const resolutionShift = BigInt(32 - maxNetmask);
 
         // Helper to get prefix string
         const getPrefix = (idx: number, level: number): string => {
@@ -186,7 +187,6 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
             return addr + '/' + level;
         };
         
-        const resolutionShift = BigInt(32 - maxNetmask);
 
         for (let i = 0; i < totalLines; i++) {
             const line = lines[i].trim();

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import Worker from '../worker?worker';
 
+export type TypedArray = Float32Array | Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array;
+
 export type PlaygroundData = {
-    raw: Float32Array | Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array;
+    raw: TypedArray;
     maps: Record<number, Record<string, number>>;
     metadata: {
         minVal: number;
