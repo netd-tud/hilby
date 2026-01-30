@@ -6,18 +6,20 @@ import { Address6 } from 'ip-address';
  * This function creates a set of prefixes covering the start of the IPv4 space,
  * progressively increasing in specificity.
  */
-export const generateIPv4ExpansionPrefixes = (): string[] => {
-    const base = ip2long("0.0.0.0");
+export const generateIPv4ExpansionPrefixes = (basePrefix: string = "0.0.0.0", minPrefix: number = 0, maxPrefix: number = 8): string[] => {
+    console.log(basePrefix, minPrefix, maxPrefix)
+    const base = ip2long(basePrefix);
     const prefixes: string[] = [];
 
     // Iterate through prefix lengths 0, 2, 4, 6
-    for (let i = 0; i < 8; i += 2) {
+    for (let i = minPrefix; i < maxPrefix; i += 2) {
         let itr = base;
         // Calculate the step size (number of addresses) for the current prefix length
         const ctr = (1 << (32 - i));
         
+        const factor = minPrefix === 0 ? 0.875 : 1;
         // We only need to do 0.875 because of the unused 224/4 and 240/4
-        for (let j = 0; j < (1 << (i)) * 0.875; j++) {
+        for (let j = 0; j < (1 << (i)) * factor; j++) {
             const prefix = long2ip(itr) + "/" + i.toString();
             prefixes.push(prefix);
             itr += ctr;

@@ -183,7 +183,7 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
                 <Text fw={500}>Controls</Text>
                 <Stack gap="xs">
                     <Group grow>
-                        <Button onClick={onExpand} variant="filled">{isExpanded ? "Collapse to /0" : "Expand to /8"}</Button>
+                        <Button onClick={onExpand} variant="filled">{isExpanded ? "Collapse to base" : "Expand by 8"}</Button>
                         <Button onClick={onReset} variant="outline">Reset Zoom</Button>
                     </Group>
                 </Stack>
