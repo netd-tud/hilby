@@ -37,11 +37,9 @@ function App() {
     const colorScale = useMemo(() => {
         if (!deferredData) return null;
         
-        console.log("Starting color")
         const rawScale = createColorScale(deferredData.raw, colors);
         const colorMaps: Record<string, chroma.Scale> = {};
         colorMaps["raw"] = rawScale;
-
         if (aggregation === "sum") {
             for (const map of Object.keys(deferredData.maps)) {
                 let scale;
@@ -49,19 +47,27 @@ function App() {
                     // Approximate for the last layers for speed
                     scale = chroma.scale(colors).domain(rawScale.domain().map(v => v* 2**(deferredData.metadata.resolution - Number(map))))
                 } else {
-                    
-                    const values = Object.values(deferredData.maps[Number(map)]).map(v => v.sum);
 
+                    const rawValues = Object.keys(deferredData.maps[Number(map)])
+                    let values: number[] = []
+                    if (rawValues.length > 1000) {
+                        for (let i = 0; i <= rawValues.length; i += rawValues.length / 1000) {
+                            const value = deferredData.maps[Number(map)][rawValues[Math.floor(i)]]["sum"];
+                            if (value !== defaultValue)
+                                values.push(value);
+                        }
+                    } else {
+                        values = rawValues.map(v => deferredData.maps[Number(map)][v].sum);
+                    }
                     scale = createColorScale(values, colors);
 
                 }
                 colorMaps[map] = scale;
             }
         } 
-        console.log("finished color")
         return colorMaps;
 
-    }, [deferredData, colors, aggregation]);
+    }, [deferredData, colors, aggregation, defaultValue]);
 
     const visualRenderer = useMemo(() => {
         if (!deferredData || !colorScale) return () => {};
@@ -78,7 +84,8 @@ function App() {
 
     const handleExpandCollapse = () => {
         if (!collapseStatus) {
-            const prefixes = generateIPv4ExpansionPrefixes();
+            const topNetmask = Number(deferredData?.metadata.coveringPrefix.split("/")[1])
+            const prefixes = generateIPv4ExpansionPrefixes(topPrefix.split("/")[0], topNetmask, Math.min(deferredData?.metadata.resolution ?? Infinity, topNetmask + 8));
             prefixManipulation.setPrefixSplit(prefixes, true);
             setCollapseStatus(true);
         } else {
@@ -94,7 +101,7 @@ function App() {
         setDefaultValue(settings.defaultValue);
         setPropagate(settings.propagate);
         setIgnoreDefaultInAggregation(settings.ignoreDefaultInAggregation);
-        
+
         return returnVal;
     };
 
