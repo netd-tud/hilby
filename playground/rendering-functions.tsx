@@ -5,7 +5,12 @@ import chroma from "chroma-js";
  * Creates a render function that populates config.properties['value'] based on the playground data.
  */
 export const createDataLookupFunction = (
-    data: PlaygroundData | null
+    data: PlaygroundData | null,
+    aggregation: 'sum' | 'mean' | 'max' | 'min',
+    defaultValueSettings: {
+        defaultValue: number,
+        ignoreDefaultInAggregation: boolean
+    }
 ): RenderFunction => {
     return (prefix: string, long: bigint, netmask: number, config) => {
         if (!data) return;
@@ -19,7 +24,13 @@ export const createDataLookupFunction = (
 
         // 1. Check if we have a pre-aggregated map for this level
         if (maps[netmask] && maps[netmask][prefix] !== undefined) {
-            value = maps[netmask][prefix];
+            const entry = maps[netmask][prefix];
+               switch (aggregation) {
+                    case 'sum': value = entry.sum; break;
+                    case 'mean': value = entry.sum / entry.count; break;
+                    case 'max': value = entry.max; break;
+                    case 'min': value = entry.min; break;
+                }
         } 
         // 2. If netmask is finer or equal to our resolution, look into the raw array
         else if (netmask >= resolution) {
@@ -31,16 +42,35 @@ export const createDataLookupFunction = (
                 value = 0; 
             }
         }
-        // 3. Fallback: If we are at a level between map entries or if map is missing
+        // 3. We are in between the last map and the raw data. We perform the aggregation here.
         else {
-            // Find the closest available finer level
-            // In the worker, we currently generate all even levels < resolution.
-            // If missing, we could aggregate on the fly, but for performance, 
-            // the worker should ideally provide what's needed or we use a safe default.
-            
-            // If we are here, it means maps[netmask] didn't have the prefix.
-            // This usually means the prefix is empty or outside our covering range.
-            value = 0;
+            const baseIndex = Number((long - baseIP) >> resolutionShift);
+            const nValues = 2**(resolution - netmask);
+            let counter = 0;
+            value = aggregation === "min" ? Infinity : 0;
+            for (let i = 0; i < nValues; i++) {
+                const localValue = raw[baseIndex + i];
+                if (defaultValueSettings.ignoreDefaultInAggregation && localValue === defaultValueSettings.defaultValue) {
+                    counter += 1;
+                    continue;
+                }; 
+                switch (aggregation) {
+                    case "sum": value += localValue; break;
+                    case "mean": value += localValue; break;
+                    case "max": value = Math.max(value, localValue); break;
+                    case "min": value = Math.min(value, localValue); break;
+                }
+            }
+
+            if (aggregation === "mean") {
+                let fixedCount = nValues;
+                if (defaultValueSettings.ignoreDefaultInAggregation) {
+                    fixedCount -= counter;
+                }
+                if (fixedCount != 0)
+                    value = value / fixedCount;
+            }
+
         }
 
         config.properties['value'] = value;
@@ -48,12 +78,18 @@ export const createDataLookupFunction = (
 };
 
 export const createColorScale = (raw: TypedArray, colors: string[] = ["green", "yellow", 'red']) => {
-    const samples: number[] = [];
-    for (let i = 0; i <= raw.length; i += raw.length / 1000) {
-        const value = raw[Math.floor(i)];
-        if (value !== 0)
-            samples.push(value);
+    let samples: number[] = [];
+
+    if (raw.length <= 1000) {
+        samples = raw.map(v => Number(v)) as number[];
+    } else {
+        for (let i = 0; i <= raw.length; i += raw.length / 1000) {
+            const value = raw[Math.floor(i)];
+            if (value !== 0)
+                samples.push(value);
+        }
     }
+
 
     return chroma.scale(colors).domain(samples.sort((a,b) => a -b), 25, 'Q');
 }
@@ -64,28 +100,57 @@ export const createColorScale = (raw: TypedArray, colors: string[] = ["green", "
 export const createValueColoringFunction = (
     min: number,
     _max: number,
-    quantileScale: chroma.Scale<chroma.Color>
+    quantileScales: Record<string, chroma.Scale<chroma.Color>>
 ): RenderFunction => {
-    return (_prefix, _long, _netmask, config) => {
-        const value = config.properties['value'] as number;
-        if (value === undefined) return;
+    if (Object.keys(quantileScales).length === 1) {
+        // we are not in a sum aggregation
+        const quantileScale = quantileScales["raw"];
 
-        const color = quantileScale(value);
-
-        // If value is effectively "zero" or "default", use a neutral color
-        // (Note: user can define default, so we check against min/max if appropriate, 
-        // but usually 0 is the "empty" signal)
-        if (value === 0 && min !== 0) {
-            config.style.backgroundColor = "#000000";
-            config.style.color = "#FFFFFF";
-            return;
+        return (_prefix, _long, _netmask, config) => {
+            const value = config.properties['value'] as number;
+            if (value === undefined) return;
+    
+            const color = quantileScale(value);
+    
+            // If value is effectively "zero" or "default", use a neutral color
+            // (Note: user can define default, so we check against min/max if appropriate, 
+            // but usually 0 is the "empty" signal)
+            if (value === 0 && min !== 0) {
+                config.style.backgroundColor = "#000000";
+                config.style.color = "#FFFFFF";
+                return;
+            }
+    
+            config.style.backgroundColor = color.hex();
+            
+            // Text color for contrast
+            config.style.color = color.luminance() < 0.5 ? 'white' : 'black';
         }
+    } else {
+         return (_prefix, _long, netmask, config) => {
+            const value = config.properties['value'] as number;
+            if (value === undefined) return;
 
-        config.style.backgroundColor = color.hex();
-        
-        // Text color for contrast
-        config.style.color = color.luminance() < 0.5 ? 'white' : 'black';
+            const quantileScale = quantileScales[netmask.toString()] ?? quantileScales["raw"];
+    
+            const color = quantileScale(value);
+    
+            // If value is effectively "zero" or "default", use a neutral color
+            // (Note: user can define default, so we check against min/max if appropriate, 
+            // but usually 0 is the "empty" signal)
+            if (value === 0 && min !== 0) {
+                config.style.backgroundColor = "#000000";
+                config.style.color = "#FFFFFF";
+                return;
+            }
+    
+            config.style.backgroundColor = color.hex();
+            
+            // Text color for contrast
+            config.style.color = color.luminance() < 0.5 ? 'white' : 'black';
+        }
     }
+    
 };
 
 /**

@@ -1,4 +1,4 @@
-import { AppShell, Container, Loader, Text, Progress, Box } from '@mantine/core';
+import { AppShell, Container, Loader, Text, Progress, Box, ScrollArea } from '@mantine/core';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { InteractiveHilbert, useControlledHilbert, useEnableKeyBindings } from '../lib/main';
 import { Sidebar } from './components/Sidebar';
@@ -6,6 +6,7 @@ import { usePlaygroundWorker } from './hooks/usePlaygroundWorker';
 import { createDataLookupFunction, createValueColoringFunction, valueText, createColorScale } from './rendering-functions';
 import { generateIPv4ExpansionPrefixes } from '@/utils/prefix-utils';
 import './App.css';
+import chroma from 'chroma-js';
 
 function App() {
     const { data, isParsing, progress, parseData } = usePlaygroundWorker();
@@ -24,15 +25,47 @@ function App() {
     const [colors, setColors] = useState<string[]>(["green", "yellow", "red"]);
 
     // Prepare render functions
-    const dataRenderer = useMemo(() => createDataLookupFunction(deferredData), [deferredData]);
+    const dataRenderer = useMemo(() => createDataLookupFunction(deferredData, 
+        aggregation, 
+        {
+            defaultValue: defaultValue, 
+            ignoreDefaultInAggregation: ignoreDefaultInAggregation
+        }), 
+        [deferredData, aggregation, defaultValue, ignoreDefaultInAggregation]
+    );
     
     const colorScale = useMemo(() => {
         if (!deferredData) return null;
-        return createColorScale(deferredData.raw, colors);
-    }, [deferredData, colors]);
+        
+        console.log("Starting color")
+        const rawScale = createColorScale(deferredData.raw, colors);
+        const colorMaps: Record<string, chroma.Scale> = {};
+        colorMaps["raw"] = rawScale;
+
+        if (aggregation === "sum") {
+            for (const map of Object.keys(deferredData.maps)) {
+                let scale;
+                if (Number(map) > deferredData.metadata.resolution - 8) {
+                    // Approximate for the last layers for speed
+                    scale = chroma.scale(colors).domain(rawScale.domain().map(v => v* 2**(deferredData.metadata.resolution - Number(map))))
+                } else {
+                    
+                    const values = Object.values(deferredData.maps[Number(map)]).map(v => v.sum);
+
+                    scale = createColorScale(values, colors);
+
+                }
+                colorMaps[map] = scale;
+            }
+        } 
+        console.log("finished color")
+        return colorMaps;
+
+    }, [deferredData, colors, aggregation]);
 
     const visualRenderer = useMemo(() => {
         if (!deferredData || !colorScale) return () => {};
+
         return createValueColoringFunction(
             deferredData.metadata.minVal, 
             deferredData.metadata.maxVal, 
@@ -55,17 +88,21 @@ function App() {
     };
 
     const handleSettingsChange = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean; ignoreDefaultInAggregation: boolean; }) => {
+        const returnVal = settings.aggregation === aggregation;
+
         setAggregation(settings.aggregation);
         setDefaultValue(settings.defaultValue);
         setPropagate(settings.propagate);
-        setIgnoreDefaultInAggregation(settings.ignoreDefaultInAggregation)
+        setIgnoreDefaultInAggregation(settings.ignoreDefaultInAggregation);
+        
+        return returnVal;
     };
 
     const [lastContent, setLastContent] = useState<string | null>(null);
 
     const handleFullUpdate = (content: string, settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
         setLastContent(content);
-        parseData(content, settings.defaultValue, settings.propagate, settings.aggregation, settings.ignoreDefaultInAggregation);
+        parseData(content, settings.defaultValue, settings.propagate, settings.ignoreDefaultInAggregation);
     }
     
     const onUpload = (content: string) => {
@@ -73,10 +110,10 @@ function App() {
     }
 
     const onSettingsUpdate = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
-        handleSettingsChange(settings);
-        if (lastContent) {
+        const haveToReparse = handleSettingsChange(settings);
+        if (lastContent && haveToReparse) {
             // Re-run worker
-            parseData(lastContent, settings.defaultValue, settings.propagate, settings.aggregation, settings.ignoreDefaultInAggregation);
+            parseData(lastContent, settings.defaultValue, settings.propagate, settings.ignoreDefaultInAggregation);
         }
     }
 
@@ -91,22 +128,24 @@ function App() {
             navbar={{ width: 400, breakpoint: 'sm' }}
         >
             <AppShell.Navbar>
-                <Sidebar
-                    onUpload={onUpload}
-                    onSettingsChange={onSettingsUpdate}
-                    onExpand={handleExpandCollapse}
-                    onReset={() => {
-                        zoomManipulation.resetZoom();
-                        setCollapseStatus(false);
-                    }}
-                    parsing={isParsing}
-                    isExpanded={collapseStatus}
-                    hasData={!!data}
-                    metadata={data?.metadata}
-                    colorScale={colorScale}
-                    currentColors={colors}
-                    onColorsChange={setColors}
-                />
+                <ScrollArea>
+                    <Sidebar
+                        onUpload={onUpload}
+                        onSettingsChange={onSettingsUpdate}
+                        onExpand={handleExpandCollapse}
+                        onReset={() => {
+                            zoomManipulation.resetZoom();
+                            setCollapseStatus(false);
+                        }}
+                        parsing={isParsing}
+                        isExpanded={collapseStatus}
+                        hasData={!!data}
+                        metadata={data?.metadata}
+                        colorScale={colorScale ? colorScale["raw"]: null}
+                        currentColors={colors}
+                        onColorsChange={setColors}
+                    />
+                </ScrollArea>
             </AppShell.Navbar>
 
             <AppShell.Main>

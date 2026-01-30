@@ -6,16 +6,15 @@ type WorkerInput = {
     defaultValue: number;
     propagate: boolean;
     ignoreDefaultInAggregation: boolean;
-    aggregation: 'sum' | 'mean' | 'max' | 'min';
 };
-
+export type AggregatorMapEntry =  { sum: number, count: number, min: number, max: number };
 const BATCH_SIZE = 10000;
 
 // Helper to check if a value is effectively an integer
 const isInt = (n: number) => n % 1 === 0;
 
 self.onmessage = async (e: MessageEvent<WorkerInput>) => {
-    const { csvContent, defaultValue, propagate, aggregation, ignoreDefaultInAggregation } = e.data;
+    const { csvContent, defaultValue, propagate, ignoreDefaultInAggregation } = e.data;
 
     try {
         const lines = csvContent.split('\n');
@@ -24,7 +23,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
         // ----------------------------------------------------------------
         // Phase 1: First Scan - Analyze Data
         // ----------------------------------------------------------------
-        self.postMessage({ type: 'progress', phase: 'Analyzing Data (1/3)', progress: 0 });
+        self.postMessage({ type: 'progress', phase: 'Analyzing Data (1/2)', progress: 0 });
 
         let minVal = Infinity;
         let maxVal = -Infinity;
@@ -48,7 +47,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
             if (i % BATCH_SIZE === 0) {
                 const now = Date.now();
                 if (now - lastProgress > 100) {
-                    self.postMessage({ type: 'progress', phase: 'Analyzing Data (1/3)', progress: i / totalLines });
+                    self.postMessage({ type: 'progress', phase: 'Analyzing Data (1/2)', progress: i / totalLines });
                     lastProgress = now;
                     // Yield to event loop to allow message sending
                     await new Promise(r => setTimeout(r, 0));
@@ -157,19 +156,14 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
         // ----------------------------------------------------------------
         // Phase 2: Populate Array
         // ----------------------------------------------------------------
-        self.postMessage({ type: 'progress', phase: 'Populating Data (2/3)', progress: 0 });
-
-        const maps: Record<number, Record<string, number>> = {};
+        self.postMessage({ type: 'progress', phase: 'Populating Data (2/2)', progress: 0 });
         
         // We want to generate maps for zoom levels coarser than maxNetmask.
+        // We dont need lookups for the last couple of steps, we can just calculate those on the fly
 
-        for (let l = 0; l < maxNetmask; l += 2) {
-            maps[l] = {};
-        }
-
-        const tempMaps: Record<number, Record<string, { sum: number, count: number, min: number, max: number }>> = {};
-        for (const level in maps) {
-            tempMaps[level] = {};
+        const tempMaps: Record<number, Record<string, AggregatorMapEntry>> = {};
+        for (let l = commonPrefixLen; l < maxNetmask - 6; l += 2) {
+            tempMaps[l] = {};
         }
         const resolutionShift = BigInt(32 - maxNetmask);
 
@@ -195,7 +189,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
             if (i % BATCH_SIZE === 0) {
                  const now = Date.now();
                  if (now - lastProgress > 100) {
-                     self.postMessage({ type: 'progress', phase: 'Populating Data (2/3)', progress: i / totalLines });
+                     self.postMessage({ type: 'progress', phase: 'Populating Data (2/2)', progress: i / totalLines });
                      lastProgress = now;
 
                      // This yields the event loop once, to allow for the message to be posted
@@ -255,7 +249,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
 
                             if (ignoreDefaultInAggregation && val === defaultValue) continue; 
                                        
-                            for (const levelStr in maps) {
+                            for (const levelStr in tempMaps) {
                                 const level = parseInt(levelStr, 10);
             
                                 const key = getPrefix(i, level);
@@ -264,7 +258,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
                         }
                     } else {
                         // If propagate is not on, we assume that the value in the csv is already the aggregated value for that level
-                        for (const levelStr in maps) {
+                        for (const levelStr in tempMaps) {
                             const level = parseInt(levelStr, 10);
                             // Since propagation is turned off, we do not update more specific maps
                             if (level > mask) continue;
@@ -304,7 +298,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
                     
                     if (ignoreDefaultInAggregation && val === defaultValue) continue; 
                                        
-                    for (const levelStr in maps) {
+                    for (const levelStr in tempMaps) {
                         const level = parseInt(levelStr, 10);
     
                         const key = getPrefix(startIndex, level);
@@ -326,34 +320,10 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
             }
         }
 
-        // ----------------------------------------------------------------
-        // Phase 3: Aggregation Maps
-        // ----------------------------------------------------------------
-        self.postMessage({ type: 'progress', phase: 'Generating Maps (3/3)', progress: 0 });
-        
-        // Finalize maps
-        for (const levelStr in tempMaps) {
-            const level = parseInt(levelStr, 10);
-            for (const key in tempMaps[level]) {
-                const entry = tempMaps[level][key];
-                let result = 0;
-                switch (aggregation) {
-                    case 'sum': result = entry.sum; break;
-                    case 'mean': result = entry.sum / entry.count; break;
-                    case 'max': result = entry.max; break;
-                    case 'min': result = entry.min; break;
-                }
-                maps[level][key] = result;
-            }
-        }
-
-        self.postMessage({ type: 'progress', phase: 'Generating Maps (3/3)', progress: 1 });
-
-
         self.postMessage({
             type: 'result',
             raw,
-            maps,
+            tempMaps,
             metadata: {
                 minVal,
                 maxVal,

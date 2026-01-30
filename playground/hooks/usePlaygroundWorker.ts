@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import Worker from '../worker?worker';
+import { AggregatorMapEntry } from '../worker';
 
-export type TypedArray = Float32Array | Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array;
+export type TypedArray = Float32Array | Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | number[];
 
 export type PlaygroundData = {
     raw: TypedArray;
-    maps: Record<number, Record<string, number>>;
+    maps: Record<number, Record<string, AggregatorMapEntry>>;
     metadata: {
         minVal: number;
         maxVal: number;
@@ -32,7 +33,7 @@ export function usePlaygroundWorker() {
         const workerInstance = new Worker();
         setWorker(workerInstance);
 
-        workerInstance.onmessage = function (e) {
+        workerInstance.onmessage = function (e: MessageEvent) {
             const msg = e.data;
             if (msg.type === 'progress') {
                 setProgress({ phase: msg.phase, progress: msg.progress });
@@ -40,7 +41,7 @@ export function usePlaygroundWorker() {
                 setIsParsing(false);
                 setData({
                     raw: msg.raw,
-                    maps: msg.maps,
+                    maps: msg.tempMaps,
                     metadata: msg.metadata
                 });
             } else if (msg.type === 'error') {
@@ -54,12 +55,12 @@ export function usePlaygroundWorker() {
         };
     }, []);
 
-    const parseData = useCallback((csvContent: string, defaultValue: number, propagate: boolean, aggregation: string, ignoreDefaultInAggregation: boolean) => {
+    const parseData = useCallback((csvContent: string, defaultValue: number, propagate: boolean, ignoreDefaultInAggregation: boolean) => {
         if (worker) {
             setIsParsing(true);
             setProgress({ phase: 'Starting', progress: 0 });
             setError(null);
-            worker.postMessage({ csvContent, defaultValue, propagate, aggregation, ignoreDefaultInAggregation });
+            worker.postMessage({ csvContent, defaultValue, propagate, ignoreDefaultInAggregation });
         }
     }, [worker]);
 
