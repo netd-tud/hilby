@@ -49,7 +49,7 @@ function App() {
     const colorScale = useMemo(() => {
         if (!deferredData) return null;
         
-        const rawScale = createColorScale(deferredData.raw, colors);
+        const rawScale = createColorScale(deferredData.raw, defaultValue, colors);
         const colorMaps: Record<string, chroma.Scale> = {};
         colorMaps["raw"] = rawScale;
         if (aggregation === "sum") {
@@ -71,7 +71,7 @@ function App() {
                     } else {
                         values = rawValues.map(v => deferredData.maps[Number(map)][v].sum);
                     }
-                    scale = createColorScale(values, colors);
+                    scale = createColorScale(values, defaultValue, colors);
 
                 }
                 colorMaps[map] = scale;

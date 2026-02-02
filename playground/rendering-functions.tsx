@@ -77,7 +77,7 @@ export const createDataLookupFunction = (
     }
 };
 
-export const createColorScale = (raw: TypedArray, colors: string[] = ["green", "yellow", 'red']) => {
+export const createColorScale = (raw: TypedArray, defaultValue: number, colors: string[] = ["green", "yellow", 'red']) => {
     let samples: number[] = [];
 
     if (raw.length <= 1000) {
@@ -85,7 +85,7 @@ export const createColorScale = (raw: TypedArray, colors: string[] = ["green", "
     } else {
         for (let i = 0; i <= raw.length; i += raw.length / 1000) {
             const value = raw[Math.floor(i)];
-            if (value !== 0)
+            if (value !== defaultValue)
                 samples.push(value);
         }
     }
