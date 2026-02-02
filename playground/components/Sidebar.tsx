@@ -1,6 +1,7 @@
-import { FileButton, Button, NativeSelect, NumberInput, Checkbox, Group, Stack, Text, Title, Box, SegmentedControl, ColorInput } from '@mantine/core';
+import { FileButton, Button, NativeSelect, NumberInput, Checkbox, Group, Stack, Text, Title, Box, SegmentedControl, ColorInput, ActionIcon, Tooltip } from '@mantine/core';
 import { useState, useEffect } from 'react';
 import { Scale } from 'chroma-js';
+import { FaQuestionCircle, FaInfoCircle } from 'react-icons/fa';
 import { Legend } from './Legend';
 
 interface SidebarProps {
@@ -8,6 +9,7 @@ interface SidebarProps {
     onSettingsChange: (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => void;
     onExpand: () => void;
     onReset: () => void;
+    onOpenTutorial: () => void;
     parsing: boolean;
     isExpanded: boolean;
     hasData: boolean;
@@ -22,7 +24,7 @@ interface SidebarProps {
     onColorsChange: (colors: string[]) => void;
 }
 
-export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing, isExpanded, hasData, metadata, colorScale, currentColors, onColorsChange }: SidebarProps) {
+export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, currentColors, onColorsChange }: SidebarProps) {
     const [file, setFile] = useState<File | null>(null);
     const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min'>('mean');
     const [defaultValue, setDefaultValue] = useState<number>(0);
@@ -93,14 +95,33 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
         }
     };
 
+    const InfoTooltip = ({ label }: { label: string }) => (
+        <Tooltip label={label} multiline w={250} withArrow transitionProps={{ transition: 'pop', duration: 200 }}>
+            <ActionIcon variant="transparent" color="gray" size="xs">
+                <FaInfoCircle />
+            </ActionIcon>
+        </Tooltip>
+    );
+
     return (
         <Stack p="md" gap="lg">
-            <Title order={3}>Playground</Title>
+            <Group justify="space-between" align="center">
+                <Title order={3}>Playground</Title>
+                <Tooltip label="Show Tutorial">
+                    <ActionIcon variant="subtle" color="gray" onClick={onOpenTutorial} size="lg" aria-label="Help">
+                        <FaQuestionCircle size={20} />
+                    </ActionIcon>
+                </Tooltip>
+            </Group>
 
             <Stack gap="xs">
-                <Text fw={500}>Data Upload</Text>
+                <Group gap={5} align="center">
+                    <Text fw={500}>Data Upload</Text>
+                </Group>
                 <FileButton onChange={handleFileChange} accept=".csv,text/csv">
-                    {(props) => <Button {...props} loading={parsing}>Upload CSV</Button>}
+                    {(props) => (
+                        <Button {...props} loading={parsing}>Upload CSV</Button>
+                    )}
                 </FileButton>
                 {file && <Text size="sm">Selected: {file.name}</Text>}
             </Stack>
@@ -108,30 +129,46 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
             <Stack gap="xs">
                 <Text fw={500}>Settings</Text>
                 <NativeSelect
-                    label="Aggregation"
+                    label={
+                        <Group gap={5} align="center">
+                            <Text size="sm">Aggregation</Text>
+                            {/* <InfoTooltip label="Select the method used to aggregate values for less specific subnets." /> */}
+                        </Group>
+                    }
                     data={['mean', 'sum', 'max', 'min']}
                     value={aggregation}
                     onChange={(event) => handleSettingsUpdate({ aggregation: event.currentTarget.value as 'sum' | 'mean' | 'max' | 'min' })}
                     disabled={parsing}
                 />
                 <NumberInput
-                    label="Default Value"
+                    label={
+                        <Group gap={5} align="center">
+                            <Text size="sm">Default Value</Text>
+                            {/* <InfoTooltip label="The value assigned to IP addresses or prefixes that are not present in the uploaded CSV." /> */}
+                        </Group>
+                    }
                     value={defaultValue}
                     onChange={(value) => handleSettingsUpdate({ defaultValue: Number(value) })}
                     disabled={parsing}
                 />
-                <Checkbox
-                    label="Propagate value to subnets"
-                    checked={propagate}
-                    onChange={(event) => handleSettingsUpdate({ propagate: event.currentTarget.checked })}
-                    disabled={parsing}
-                />
-                <Checkbox
-                    label="Ignore Default Value in Aggregation"
-                    checked={ignoreDefaultInAggregation}
-                    onChange={(event) => handleSettingsUpdate({ ignoreDefaultInAggregation: event.currentTarget.checked })}
-                    disabled={parsing}
-                />
+                <Group gap={5} align="center">
+                    <Checkbox
+                        label="Propagate value to subnets"
+                        checked={propagate}
+                        onChange={(event) => handleSettingsUpdate({ propagate: event.currentTarget.checked })}
+                        disabled={parsing}
+                    />
+                    <InfoTooltip label="If checked, a value assigned to a prefix (e.g., /24) will be applied to all subnets within that prefix." />
+                </Group>
+                <Group gap={5} align="center">
+                    <Checkbox
+                        label="Ignore Default Value in Aggregation"
+                        checked={ignoreDefaultInAggregation}
+                        onChange={(event) => handleSettingsUpdate({ ignoreDefaultInAggregation: event.currentTarget.checked })}
+                        disabled={parsing}
+                    />
+                    <InfoTooltip label="If checked, the 'Default Value' will be excluded from aggregation calculations (e.g., calculating the mean)." />
+                </Group>
             </Stack>
 
             {hasData && metadata && (
@@ -158,6 +195,11 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
                                 {mode === 'custom' && (
                                     <Group grow>
                                         <ColorInput 
+                                            label={
+                                                <Group gap={5} align="center">
+                                                    <Text size="sm">Min Color</Text>
+                                                </Group>
+                                            }
                                             placeholder="Min Color" 
                                             value={customStart} 
                                             onChange={(val) => handleCustomColorChange('start', val)} 
@@ -165,6 +207,11 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
                                             swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
                                         />
                                         <ColorInput 
+                                            label={
+                                                <Group gap={5} align="center">
+                                                    <Text size="sm">Max Color</Text>
+                                                </Group>
+                                            }
                                             placeholder="Max Color" 
                                             value={customEnd} 
                                             onChange={(val) => handleCustomColorChange('end', val)} 
@@ -180,7 +227,9 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, parsing
             )}
 
             <Stack gap="xs">
-                <Text fw={500}>Controls</Text>
+                <Group gap={5} align="center">
+                    <Text fw={500}>Controls</Text>
+                </Group>
                 <Stack gap="xs">
                     <Group grow>
                         <Button onClick={onExpand} variant="filled">{isExpanded ? "Collapse to base" : "Expand by 8"}</Button>

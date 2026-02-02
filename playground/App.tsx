@@ -1,16 +1,28 @@
 import { AppShell, Container, Loader, Text, Progress, Box, ScrollArea } from '@mantine/core';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDisclosure } from '@mantine/hooks';
 import { InteractiveHilbert, useControlledHilbert, useEnableKeyBindings } from '../lib/main';
 import { Sidebar } from './components/Sidebar';
 import { usePlaygroundWorker } from './hooks/usePlaygroundWorker';
 import { createDataLookupFunction, createValueColoringFunction, valueText, createColorScale } from './rendering-functions';
 import { generateIPv4ExpansionPrefixes } from '@/utils/prefix-utils';
+import TutorialModal from './components/TutorialModal';
 import './App.css';
 import chroma from 'chroma-js';
 
 function App() {
     const { data, isParsing, progress, parseData } = usePlaygroundWorker();
     const deferredData = useDeferredValue(data);
+
+    const [opened, { open, close }] = useDisclosure(false);
+
+    useEffect(() => {
+        const hasSeenTutorial = localStorage.getItem('playground_tutorial_seen');
+        if (!hasSeenTutorial) {
+            open();
+            localStorage.setItem('playground_tutorial_seen', 'true');
+        }
+    }, [open]);
 
     const [hilbertStore, prefixManipulation, zoomManipulation] = useControlledHilbert();
     const [topPrefix, setTopPrefix, keyHandler] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
@@ -130,58 +142,62 @@ function App() {
     }, [data?.metadata.coveringPrefix, setTopPrefix])
 
     return (
-        <AppShell
-            padding="md"
-            navbar={{ width: 400, breakpoint: 'sm' }}
-        >
-            <AppShell.Navbar>
-                <ScrollArea>
-                    <Sidebar
-                        onUpload={onUpload}
-                        onSettingsChange={onSettingsUpdate}
-                        onExpand={handleExpandCollapse}
-                        onReset={() => {
-                            zoomManipulation.resetZoom();
-                            setCollapseStatus(false);
-                        }}
-                        parsing={isParsing}
-                        isExpanded={collapseStatus}
-                        hasData={!!data}
-                        metadata={data?.metadata}
-                        colorScale={colorScale ? colorScale["raw"]: null}
-                        currentColors={colors}
-                        onColorsChange={setColors}
-                    />
-                </ScrollArea>
-            </AppShell.Navbar>
-
-            <AppShell.Main>
-                <Container fluid h="100%" p={0} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                     <div className="hilbert-container" tabIndex={0} onKeyUp={keyHandler} style={{ flexGrow: 1, position: 'relative', height: "95vh" }}>
-                        {isParsing && (
-                            <Box style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 10 }}>
-                                <Loader size="lg" />
-                                <Text mt="md" size="lg" fw={500}>{progress?.phase || 'Processing...'}</Text>
-                                <Box w={300} mt="md">
-                                    <Progress value={(progress?.progress || 0) * 100} animated />
-                                </Box>
-                            </Box>
-                        )}
-                        {!data && !isParsing && (
-                            <Box style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <Text size="lg" c="dimmed">Upload a CSV file to visualize data.</Text>
-                            </Box>
-                        )}
-                        <InteractiveHilbert 
-                            topPrefix={topPrefix} 
-                            renderFunctions={renderFunctions} 
-                            hilbertStore={hilbertStore} 
-                            maxExpand={24} 
+        <>
+            <AppShell
+                padding="md"
+                navbar={{ width: 400, breakpoint: 'sm' }}
+            >
+                <AppShell.Navbar>
+                    <ScrollArea>
+                        <Sidebar
+                            onUpload={onUpload}
+                            onSettingsChange={onSettingsUpdate}
+                            onExpand={handleExpandCollapse}
+                            onReset={() => {
+                                zoomManipulation.resetZoom();
+                                setCollapseStatus(false);
+                            }}
+                            onOpenTutorial={open}
+                            parsing={isParsing}
+                            isExpanded={collapseStatus}
+                            hasData={!!data}
+                            metadata={data?.metadata}
+                            colorScale={colorScale ? colorScale["raw"]: null}
+                            currentColors={colors}
+                            onColorsChange={setColors}
                         />
-                    </div>
-                </Container>
-            </AppShell.Main>
-        </AppShell>
+                    </ScrollArea>
+                </AppShell.Navbar>
+
+                <AppShell.Main>
+                    <Container fluid h="100%" p={0} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                         <div className="hilbert-container" tabIndex={0} onKeyUp={keyHandler} style={{ flexGrow: 1, position: 'relative', height: "95vh" }}>
+                            {isParsing && (
+                                <Box style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 10 }}>
+                                    <Loader size="lg" />
+                                    <Text mt="md" size="lg" fw={500}>{progress?.phase || 'Processing...'}</Text>
+                                    <Box w={300} mt="md">
+                                        <Progress value={(progress?.progress || 0) * 100} animated />
+                                    </Box>
+                                </Box>
+                            )}
+                            {!data && !isParsing && (
+                                <Box style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    <Text size="lg" c="dimmed">Upload a CSV file to visualize data.</Text>
+                                </Box>
+                            )}
+                            <InteractiveHilbert 
+                                topPrefix={topPrefix} 
+                                renderFunctions={renderFunctions} 
+                                hilbertStore={hilbertStore} 
+                                maxExpand={24} 
+                            />
+                        </div>
+                    </Container>
+                </AppShell.Main>
+            </AppShell>
+            <TutorialModal opened={opened} close={close} />
+        </>
     );
 }
 
