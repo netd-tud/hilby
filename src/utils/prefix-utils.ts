@@ -7,7 +7,6 @@ import { Address6 } from 'ip-address';
  * progressively increasing in specificity.
  */
 export const generateIPv4ExpansionPrefixes = (basePrefix: string = "0.0.0.0", minPrefix: number = 0, maxPrefix: number = 8): string[] => {
-    console.log(basePrefix, minPrefix, maxPrefix)
     const base = ip2long(basePrefix);
     const prefixes: string[] = [];
 

@@ -1,5 +1,5 @@
-import { Modal, Text, Title, Stack, ThemeIcon, Group, Code, Timeline, Button, Center } from "@mantine/core"
-import { FaInfoCircle, FaFileUpload, FaClock, FaPalette, FaSearch, FaSlidersH } from "react-icons/fa";
+import { Modal, Text, Title, Stack, Group, Code, Timeline, Button, Center } from "@mantine/core"
+import { FaFileUpload, FaClock, FaPalette, FaSearch, FaSlidersH } from "react-icons/fa";
 
 type TutorialModalProps = {
     opened: boolean;
