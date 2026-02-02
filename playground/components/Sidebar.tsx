@@ -22,9 +22,11 @@ interface SidebarProps {
     colorScale?: Scale | null;
     currentColors: string[];
     onColorsChange: (colors: string[]) => void;
+    bucketCount: number | null;
+    onBucketCountChange: (count: number | null) => void;
 }
 
-export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, currentColors, onColorsChange }: SidebarProps) {
+export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, currentColors, onColorsChange, bucketCount, onBucketCountChange }: SidebarProps) {
     const [file, setFile] = useState<File | null>(null);
     const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min'>('mean');
     const [defaultValue, setDefaultValue] = useState<number>(0);
@@ -46,6 +48,7 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
 
     const isDefaultColors = currentColors.length === 3 && currentColors[0] === 'green' && currentColors[1] === 'yellow' && currentColors[2] === 'red';
     const [mode, setMode] = useState<string>(isDefaultColors ? 'default' : 'custom');
+    const [bucketMode, setBucketMode] = useState<string>('default');
     
     const [customStart, setCustomStart] = useState<string>(!isDefaultColors && currentColors.length >= 1 ? currentColors[0] : '#fafa6e');
     const [customEnd, setCustomEnd] = useState<string>(!isDefaultColors && currentColors.length >= 2 ? currentColors[currentColors.length - 1] : '#2A4858');
@@ -107,6 +110,15 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
             onColorsChange(["green", "yellow", "red"]);
         } else {
             onColorsChange([customStart, customEnd]);
+        }
+    };
+
+    const handleBucketChange = (val: string) => {
+        setBucketMode(val);
+        if (val === 'default') {
+            onBucketCountChange(null);
+        } else {
+            onBucketCountChange(bucketCount ?? 25)
         }
     };
 
@@ -221,6 +233,24 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
                                         { label: 'Default', value: 'default' },
                                         { label: 'Custom', value: 'custom' },
                                     ]}
+                                />
+                                <Text size="sm" fw={500}>Number of buckets</Text>
+                                <SegmentedControl
+                                    value={bucketMode}
+                                    onChange={handleBucketChange}
+                                    data={[
+                                        { label: 'Default', value: 'default' },
+                                        { label: 'Custom', value: 'custom' },
+                                    ]}
+                                />
+                                <NumberInput
+                                    label="Buckets"
+                                    value={bucketCount ?? 25}
+                                    onChange={(val) => onBucketCountChange(Number(val))}
+                                    min={2}
+                                    max={250}
+                                    step={1}
+                                    disabled={bucketMode === "default"}
                                 />
                                 {mode === 'custom' && (
                                     <Group grow>

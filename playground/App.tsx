@@ -35,6 +35,7 @@ function App() {
     const [propagate, setPropagate] = useState<boolean>(true);
     const [ignoreDefaultInAggregation, setIgnoreDefaultInAggregation] = useState<boolean>(true);
     const [colors, setColors] = useState<string[]>(["green", "yellow", "red"]);
+    const [bucketCount, setBucketCount] = useState<number| null>(null);
 
     // Prepare render functions
     const dataRenderer = useMemo(() => createDataLookupFunction(deferredData, 
@@ -48,8 +49,8 @@ function App() {
     
     const colorScale = useMemo(() => {
         if (!deferredData) return null;
-        
-        const rawScale = createColorScale(deferredData.raw, defaultValue, colors);
+
+        const rawScale = createColorScale(deferredData.raw, defaultValue, colors, bucketCount);
         const colorMaps: Record<string, chroma.Scale> = {};
         colorMaps["raw"] = rawScale;
         if (aggregation === "sum") {
@@ -71,7 +72,7 @@ function App() {
                     } else {
                         values = rawValues.map(v => deferredData.maps[Number(map)][v].sum);
                     }
-                    scale = createColorScale(values, defaultValue, colors);
+                    scale = createColorScale(values, defaultValue, colors, bucketCount);
 
                 }
                 colorMaps[map] = scale;
@@ -79,11 +80,10 @@ function App() {
         } 
         return colorMaps;
 
-    }, [deferredData, colors, aggregation, defaultValue]);
+    }, [deferredData, colors, aggregation, defaultValue, bucketCount]);
 
     const visualRenderer = useMemo(() => {
         if (!deferredData || !colorScale) return () => {};
-
         return createValueColoringFunction(
             deferredData.metadata.minVal, 
             deferredData.metadata.maxVal, 
@@ -165,6 +165,8 @@ function App() {
                             colorScale={colorScale ? colorScale["raw"]: null}
                             currentColors={colors}
                             onColorsChange={setColors}
+                            bucketCount={bucketCount}
+                            onBucketCountChange={setBucketCount}
                         />
                     </ScrollArea>
                 </AppShell.Navbar>

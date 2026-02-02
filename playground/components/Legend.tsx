@@ -2,7 +2,16 @@ import { Stack, Text, Group } from '@mantine/core';
 import { Scale } from 'chroma-js';
 
 export const Legend = ({ scale }: { scale: Scale; }) => {
-    const domain = scale.domain();
+    let domain;
+
+    //@ts-expect-error typing is incorrect for chromajs, empty classes returns false if no classes are used, else the classes
+    const classes = scale.classes() as false | number[];
+    if (classes) {
+        domain = classes as unknown as number[];
+    } else {
+
+        domain = scale.domain();
+    }
 
     // For quantile scales, domain() returns the threshold values.
     // We want to display the color for each bucket.
@@ -32,6 +41,18 @@ export const Legend = ({ scale }: { scale: Scale; }) => {
         );
     }
 
+    let showValues;
+
+    if (domain.length < 6) {
+        showValues = domain.map(v => v.toFixed(2));
+    } else {
+        showValues = [];
+        for (let i = 0; i < 5; i++) {
+            showValues.push(domain[Math.floor((domain.length - 1) / 4 * i)]?.toFixed(2))
+
+        }
+    }
+
     return (
         <Stack gap={4} mt="xs">
             <Text size="sm" fw={500}>Legend</Text>
@@ -39,11 +60,9 @@ export const Legend = ({ scale }: { scale: Scale; }) => {
                 {segments}
             </div>
             <Group justify="space-between">
-                <Text size="xs">{domain[0].toFixed(2)}</Text>
-                <Text size="xs">{domain[Math.floor((domain.length - 1) / 4)].toFixed(2)}</Text>
-                <Text size="xs">{domain[Math.floor((domain.length - 1) / 2)].toFixed(2)}</Text>
-                <Text size="xs">{domain[Math.floor((domain.length - 1) / 4 * 3)].toFixed(2)}</Text>
-                <Text size="xs">{domain[domain.length - 1].toFixed(2)}</Text>
+                {showValues.map(v => (
+                    <Text size="xs">{v}</Text>
+                ))}
             </Group>
         </Stack>
     );

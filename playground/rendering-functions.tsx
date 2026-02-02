@@ -77,7 +77,7 @@ export const createDataLookupFunction = (
     }
 };
 
-export const createColorScale = (raw: TypedArray, defaultValue: number, colors: string[] = ["green", "yellow", 'red']) => {
+export const createColorScale = (raw: TypedArray, defaultValue: number, colors: string[] = ["green", "yellow", 'red'], buckets: number | null = null) => {
     let samples: number[] = [];
 
     if (raw.length <= 1000) {
@@ -90,8 +90,12 @@ export const createColorScale = (raw: TypedArray, defaultValue: number, colors: 
         }
     }
 
-
-    return chroma.scale(colors).domain(samples.sort((a,b) => a -b), 25, 'Q');
+    if (buckets === null) {
+        return chroma.scale(colors).domain(samples.sort((a,b) => a -b));
+    } else {
+        const limits = chroma.limits(samples.sort((a,b) => a -b), 'q', buckets);
+        return chroma.scale(colors).domain([limits[0], limits.at(-1) ?? 1]).classes(limits)
+    }
 }
 
 /**
