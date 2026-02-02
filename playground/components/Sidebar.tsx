@@ -31,6 +31,19 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
     const [propagate, setPropagate] = useState<boolean>(true);
     const [ignoreDefaultInAggregation, setIgnoreDefaultInAggregation] = useState<boolean>(true);
 
+    const [committedSettings, setCommittedSettings] = useState({
+        aggregation: 'mean',
+        defaultValue: 0,
+        propagate: true,
+        ignoreDefaultInAggregation: true
+    });
+
+    const isSettingsDirty = 
+        aggregation !== committedSettings.aggregation ||
+        defaultValue !== committedSettings.defaultValue ||
+        propagate !== committedSettings.propagate ||
+        ignoreDefaultInAggregation !== committedSettings.ignoreDefaultInAggregation;
+
     const isDefaultColors = currentColors.length === 3 && currentColors[0] === 'green' && currentColors[1] === 'yellow' && currentColors[2] === 'red';
     const [mode, setMode] = useState<string>(isDefaultColors ? 'default' : 'custom');
     
@@ -60,20 +73,32 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
     };
 
     const handleSettingsUpdate = (updates: Partial<{ aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }>) => {
-        const newSettings = {
-            aggregation: updates.aggregation ?? aggregation,
-            defaultValue: updates.defaultValue ?? defaultValue,
-            propagate: updates.propagate ?? propagate,
-            ignoreDefaultInAggregation: updates.ignoreDefaultInAggregation ?? ignoreDefaultInAggregation
-
-        };
+        if (updates.aggregation) {
+            setAggregation(updates.aggregation);
+            const newCommitted = { ...committedSettings, aggregation: updates.aggregation };
+            setCommittedSettings(newCommitted);
+            onSettingsChange({
+                ...newCommitted,
+                defaultValue: committedSettings.defaultValue,
+                propagate: committedSettings.propagate,
+                ignoreDefaultInAggregation: committedSettings.ignoreDefaultInAggregation
+            });
+        }
         
-        if (updates.aggregation) setAggregation(updates.aggregation);
         if (updates.defaultValue !== undefined) setDefaultValue(updates.defaultValue);
         if (updates.propagate !== undefined) setPropagate(updates.propagate);
         if (updates.ignoreDefaultInAggregation !== undefined) setIgnoreDefaultInAggregation(updates.ignoreDefaultInAggregation);
+    };
 
+    const applySettings = () => {
+        const newSettings = {
+            aggregation,
+            defaultValue,
+            propagate,
+            ignoreDefaultInAggregation
+        };
         onSettingsChange(newSettings);
+        setCommittedSettings(newSettings);
     };
 
     const handleModeChange = (val: string) => {
@@ -169,6 +194,11 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
                     />
                     <InfoTooltip label="If checked, the 'Default Value' will be excluded from aggregation calculations (e.g., calculating the mean)." />
                 </Group>
+                {isSettingsDirty && (
+                    <Button onClick={applySettings} variant="light" color="blue" fullWidth mt="xs" loading={parsing}>
+                        Apply Settings
+                    </Button>
+                )}
             </Stack>
 
             {hasData && metadata && (
