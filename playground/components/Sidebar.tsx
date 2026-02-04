@@ -1,8 +1,8 @@
-import { FileButton, Button, NativeSelect, NumberInput, Checkbox, Group, Stack, Text, Title, Box, SegmentedControl, ColorInput, ActionIcon, Tooltip } from '@mantine/core';
-import { useState, useEffect } from 'react';
+import { FileButton, Button, NativeSelect, NumberInput, Checkbox, Group, Stack, Text, Title, Box, ActionIcon, Tooltip } from '@mantine/core';
+import { useState } from 'react';
 import { Scale } from 'chroma-js';
 import { FaQuestionCircle, FaInfoCircle } from 'react-icons/fa';
-import { Legend } from './Legend';
+import { ColoringControls } from './ColoringControls';
 
 interface SidebarProps {
     onUpload: (content: string) => void;
@@ -20,13 +20,12 @@ interface SidebarProps {
         coveringPrefix: string;
     } | null;
     colorScale?: Scale | null;
-    currentColors: string[];
     onColorsChange: (colors: string[]) => void;
     bucketCount: number | null;
     onBucketCountChange: (count: number | null) => void;
 }
 
-export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, currentColors, onColorsChange, bucketCount, onBucketCountChange }: SidebarProps) {
+export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, onColorsChange, bucketCount, onBucketCountChange }: SidebarProps) {
     const [file, setFile] = useState<File | null>(null);
     const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min'>('mean');
     const [defaultValue, setDefaultValue] = useState<number>(0);
@@ -45,23 +44,6 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
         defaultValue !== committedSettings.defaultValue ||
         propagate !== committedSettings.propagate ||
         ignoreDefaultInAggregation !== committedSettings.ignoreDefaultInAggregation;
-
-    const isDefaultColors = currentColors.length === 3 && currentColors[0] === 'green' && currentColors[1] === 'yellow' && currentColors[2] === 'red';
-    const [mode, setMode] = useState<string>(isDefaultColors ? 'default' : 'custom');
-    const [bucketMode, setBucketMode] = useState<string>('default');
-    
-    const [customStart, setCustomStart] = useState<string>(!isDefaultColors && currentColors.length >= 1 ? currentColors[0] : '#fafa6e');
-    const [customEnd, setCustomEnd] = useState<string>(!isDefaultColors && currentColors.length >= 2 ? currentColors[currentColors.length - 1] : '#2A4858');
-
-    useEffect(() => {
-        if (isDefaultColors) {
-            setMode('default');
-        } else {
-            setMode('custom');
-            if (currentColors.length >= 1) setCustomStart(currentColors[0]);
-            if (currentColors.length >= 2) setCustomEnd(currentColors[currentColors.length - 1]);
-        }
-    }, [currentColors, isDefaultColors]);
 
     const handleFileChange = (payload: File | null) => {
         setFile(payload);
@@ -102,34 +84,6 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
         };
         onSettingsChange(newSettings);
         setCommittedSettings(newSettings);
-    };
-
-    const handleModeChange = (val: string) => {
-        setMode(val);
-        if (val === 'default') {
-            onColorsChange(["green", "yellow", "red"]);
-        } else {
-            onColorsChange([customStart, customEnd]);
-        }
-    };
-
-    const handleBucketChange = (val: string) => {
-        setBucketMode(val);
-        if (val === 'default') {
-            onBucketCountChange(null);
-        } else {
-            onBucketCountChange(bucketCount ?? 25)
-        }
-    };
-
-    const handleCustomColorChange = (pos: 'start' | 'end', val: string) => {
-        if (pos === 'start') {
-            setCustomStart(val);
-            onColorsChange([val, customEnd]);
-        } else {
-            setCustomEnd(val);
-            onColorsChange([customStart, val]);
-        }
     };
 
     const InfoTooltip = ({ label }: { label: string }) => (
@@ -222,66 +176,12 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
                         <Text size="xs"><b>Range:</b> {metadata.minVal.toFixed(2)} - {metadata.maxVal.toFixed(2)}</Text>
                     </Box>
                     {colorScale && (
-                        <>
-                            <Legend scale={colorScale} />
-                            <Stack gap="xs" mt="xs">
-                                <Text size="sm" fw={500}>Coloring</Text>
-                                <SegmentedControl
-                                    value={mode}
-                                    onChange={handleModeChange}
-                                    data={[
-                                        { label: 'Default', value: 'default' },
-                                        { label: 'Custom', value: 'custom' },
-                                    ]}
-                                />
-                                <Text size="sm" fw={500}>Number of buckets</Text>
-                                <SegmentedControl
-                                    value={bucketMode}
-                                    onChange={handleBucketChange}
-                                    data={[
-                                        { label: 'Default', value: 'default' },
-                                        { label: 'Custom', value: 'custom' },
-                                    ]}
-                                />
-                                <NumberInput
-                                    label="Buckets"
-                                    value={bucketCount ?? 25}
-                                    onChange={(val) => onBucketCountChange(Number(val))}
-                                    min={2}
-                                    max={250}
-                                    step={1}
-                                    disabled={bucketMode === "default"}
-                                />
-                                {mode === 'custom' && (
-                                    <Group grow>
-                                        <ColorInput 
-                                            label={
-                                                <Group gap={5} align="center">
-                                                    <Text size="sm">Min Color</Text>
-                                                </Group>
-                                            }
-                                            placeholder="Min Color" 
-                                            value={customStart} 
-                                            onChange={(val) => handleCustomColorChange('start', val)} 
-                                            format="hex"
-                                            swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
-                                        />
-                                        <ColorInput 
-                                            label={
-                                                <Group gap={5} align="center">
-                                                    <Text size="sm">Max Color</Text>
-                                                </Group>
-                                            }
-                                            placeholder="Max Color" 
-                                            value={customEnd} 
-                                            onChange={(val) => handleCustomColorChange('end', val)} 
-                                            format="hex"
-                                            swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
-                                        />
-                                    </Group>
-                                )}
-                            </Stack>
-                        </>
+                        <ColoringControls 
+                            colorScale={colorScale}
+                            onColorsChange={onColorsChange}
+                            bucketCount={bucketCount}
+                            onBucketCountChange={onBucketCountChange}
+                        />
                     )}
                 </Stack>
             )}

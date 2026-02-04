@@ -163,7 +163,6 @@ function App() {
                             hasData={!!data}
                             metadata={data?.metadata}
                             colorScale={colorScale ? colorScale["raw"]: null}
-                            currentColors={colors}
                             onColorsChange={setColors}
                             bucketCount={bucketCount}
                             onBucketCountChange={setBucketCount}
