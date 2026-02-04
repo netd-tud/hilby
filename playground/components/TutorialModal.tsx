@@ -14,7 +14,7 @@ const TutorialModal: React.FC<TutorialModalProps> = (props) => {
             centered 
             size="lg" 
             padding="xl"
-            title={<Title order={3}>Welcome to the Hilby Playground</Title>}
+            title={<Text fw={700} size="xl">Welcome to the Hilby Playground</Text>}
         >
             <Stack gap="lg">
                 <Text c="dimmed">
