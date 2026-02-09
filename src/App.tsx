@@ -32,7 +32,7 @@ function App() {
     const [hilbertStore, prefixManipulation, zoomManipulation] = useControlledHilbert();
     const [topPrefix, setTopPrefix, keyHandler] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
 
-    const [source, setSource] = useState<"ripe" | "routeviews">("ripe");
+    const [source, setSource] = useState<"ripe" | "routeviews">("routeviews");
     const [zoomTarget, setZoomTarget] = useState<string>("");
     const [zoomStatus, setZoomStatus] = useState<boolean>(true);
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
