@@ -3,18 +3,27 @@ import { long2ip } from "netmask";
 
 type WorkerInput = {
     csvContent: string;
+    aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical';
     defaultValue: number;
     propagate: boolean;
     ignoreDefaultInAggregation: boolean;
 };
 export type AggregatorMapEntry =  { sum: number, count: number, min: number, max: number };
+type RawBinAggregateEntry = {
+    sum: number;
+    count: number;
+    min: number;
+    max: number;
+    weightedSum: number;
+    coveredWeight: number;
+};
 const BATCH_SIZE = 10000;
 
 // Helper to check if a value is effectively an integer
 const isInt = (n: number) => n % 1 === 0;
 
 self.onmessage = async (e: MessageEvent<WorkerInput>) => {
-    const { csvContent, defaultValue, propagate, ignoreDefaultInAggregation } = e.data;
+    const { csvContent, aggregation, defaultValue, propagate, ignoreDefaultInAggregation } = e.data;
 
     try {
         const lines = csvContent.split('\n');
@@ -117,12 +126,15 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
         
         // arraySize = 2 ^ (maxNetmask - commonPrefixLen)
         // e.g. cover /24, max /32 -> 2^(32-24) = 256
+        const observedMaxNetmask = maxNetmask;
         const exponent = maxNetmask - commonPrefixLen;
+        let resolutionWasClamped = false;
         
         // Safety check for size
         if (exponent > 24) {
                 // Clamp resolution to keep size manageable (max 16M entries)
                 maxNetmask = commonPrefixLen + 24;
+            resolutionWasClamped = true;
                 // re-calculate exponent
                 // exponent = 24;
         }
@@ -139,7 +151,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
         | Float32ArrayConstructor
          = Float32Array;
 
-        if (!hasFloat) {
+        if (!hasFloat && !(resolutionWasClamped && aggregation === 'mean')) {
             // Check range
             if (minVal >= -128 && maxVal <= 127) RawArrayType = Int8Array;
             else if (minVal >= 0 && maxVal <= 255) RawArrayType = Uint8Array;
@@ -165,12 +177,18 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
         for (let l = commonPrefixLen; l < maxNetmask - 6; l += 2) {
             tempMaps[l] = {};
         }
+        if (resolutionWasClamped) {
+            // Needed so values finer than the clamped resolution can still be aggregated correctly at raw resolution.
+            tempMaps[maxNetmask] = {};
+        }
+        const rawBinAggregates: Record<number, RawBinAggregateEntry> = {};
         const resolutionShift = BigInt(32 - maxNetmask);
 
         // Helper to get prefix string
         const getPrefix = (idx: number, level: number): string => {
+            const safeIdx = Math.trunc(idx);
             // Reconstruct IP from index
-            const ipBig = baseIP + (BigInt(idx) << resolutionShift);
+            const ipBig = baseIP + (BigInt(safeIdx) << resolutionShift);
             // Mask for level
             const mask = (0xFFFFFFFFn << BigInt(32 - level)) & 0xFFFFFFFFn;
             const netBig = ipBig & mask;
@@ -252,7 +270,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
                             for (const levelStr in tempMaps) {
                                 const level = parseInt(levelStr, 10);
             
-                                const key = getPrefix(i, level);
+                                const key = getPrefix(k, level);
                                 updateTempMap(val, level, key);
                             }
                         }
@@ -277,7 +295,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
                                 updateTempMap(val, level + 2, keyLowerPart, 2**(maxNetmask - (level + 2)));
                                 
                                 // Calculate index for upper /22, add as complete one
-                                const indexUpperPart = (startIndex + (endIndex - startIndex)) / 2;
+                                const indexUpperPart = startIndex + Math.floor((endIndex - startIndex + 1) / 2);
                                 const keyUpperPart = getPrefix(indexUpperPart, level + 2);
                                 updateTempMap(val, level + 2, keyUpperPart, 2**(maxNetmask - (level + 2)));
 
@@ -291,8 +309,40 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
                         }
                 
                     }
+                } else if (mask > maxNetmask) {
+                    // Finer block than our storage resolution (can happen when resolution is clamped).
+                    // We track weighted contributions by covered fraction of the raw bin.
+                    for (let k = startIndex; k <= endIndex; k++) {
+                        if (ignoreDefaultInAggregation && val === defaultValue) continue;
+
+                        if (!rawBinAggregates[k]) {
+                            rawBinAggregates[k] = {
+                                sum: 0,
+                                count: 0,
+                                min: Infinity,
+                                max: -Infinity,
+                                weightedSum: 0,
+                                coveredWeight: 0
+                            };
+                        }
+
+                        const rawEntry = rawBinAggregates[k];
+                        const coverageWeight = Math.pow(2, maxNetmask - mask);
+                        rawEntry.sum += val;
+                        rawEntry.count += 1;
+                        if (val < rawEntry.min) rawEntry.min = val;
+                        if (val > rawEntry.max) rawEntry.max = val;
+                        rawEntry.weightedSum += val * coverageWeight;
+                        rawEntry.coveredWeight += coverageWeight;
+
+                        for (const levelStr in tempMaps) {
+                            const level = parseInt(levelStr, 10);
+                            const key = getPrefix(k, level);
+                            updateTempMap(val, level, key);
+                        }
+                    }
                 } else {
-                    // mask == maxNetmask (or theoretically > but maxNetmask is max)
+                    // mask == maxNetmask
                     // Just set the value
                     raw[startIndex] = val;
                     
@@ -320,6 +370,39 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
             }
         }
 
+        for (const indexStr in rawBinAggregates) {
+            const index = parseInt(indexStr, 10);
+            const entry = rawBinAggregates[index];
+            const baseValue = Number(raw[index]);
+            if (aggregation === 'sum') {
+                raw[index] = baseValue + entry.sum;
+                continue;
+            }
+
+            if (aggregation === 'max') {
+                raw[index] = entry.count > 0 ? Math.max(baseValue, entry.max) : baseValue;
+                continue;
+            }
+
+            if (aggregation === 'min') {
+                raw[index] = entry.count > 0 ? Math.min(baseValue, entry.min) : baseValue;
+                continue;
+            }
+
+            if (aggregation === 'mean') {
+                const coveredWeight = Math.min(entry.coveredWeight, 1);
+                if (entry.coveredWeight > 1) {
+                    raw[index] = entry.weightedSum / entry.coveredWeight;
+                } else {
+                    raw[index] = (baseValue * (1 - coveredWeight)) + entry.weightedSum;
+                }
+                continue;
+            }
+
+            // categorical fallback when clamped finer values are mixed
+            raw[index] = entry.count > 0 && entry.min !== entry.max ? defaultValue : entry.min;
+        }
+
         self.postMessage({
             type: 'result',
             raw,
@@ -330,9 +413,9 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
                 baseIP: baseIP.toString(), // BigInt to string
                 resolution: maxNetmask,
                 coveringPrefix: Address4.fromBigInt(baseIP).correctForm() + '/' + commonPrefixLen,
-                hasFloat
+                hasFloat: hasFloat || (resolutionWasClamped && aggregation === 'mean') || observedMaxNetmask > maxNetmask
             }
-        }, [raw.buffer]);
+        }, { transfer: [raw.buffer] });
 
     } catch (e) {
         console.error(e);

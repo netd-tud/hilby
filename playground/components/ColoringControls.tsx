@@ -1,11 +1,14 @@
 import { Stack, Text, SegmentedControl, NumberInput, Group, ColorInput } from '@mantine/core';
 import { useThrottledCallback } from '@mantine/hooks';
-import { Scale } from 'chroma-js';
 import { useState } from 'react';
 import { Legend } from './Legend';
+import { PlaygroundColorScale } from '../rendering-functions';
 
 interface ColoringControlsProps {
-    colorScale: Scale;
+    colorScale: PlaygroundColorScale;
+    isCategorical: boolean;
+    categoryColors: Record<string, string>;
+    onCategoryColorChange: (value: number, color: string) => void;
     onColorsChange: (colors: string[]) => void;
     bucketCount: number | null;
     onBucketCountChange: (count: number | null) => void;
@@ -13,6 +16,9 @@ interface ColoringControlsProps {
 
 export function ColoringControls({ 
     colorScale, 
+    isCategorical,
+    categoryColors,
+    onCategoryColorChange,
     onColorsChange, 
     bucketCount, 
     onBucketCountChange 
@@ -67,66 +73,72 @@ export function ColoringControls({
 
     return (
         <>
-            <Legend scale={colorScale} />
-            <Stack gap="xs" mt="xs">
-                <Text size="sm" fw={500}>Coloring</Text>
-                <SegmentedControl
-                    value={mode}
-                    onChange={handleModeChange}
-                    data={[
-                        { label: 'Default', value: 'default' },
-                        { label: 'Custom', value: 'custom' },
-                    ]}
-                />
-                
-                <Text size="sm" fw={500}>Number of buckets</Text>
-                <SegmentedControl
-                    value={bucketMode}
-                    onChange={handleBucketModeChange}
-                    data={[
-                        { label: 'Default', value: 'default' },
-                        { label: 'Custom', value: 'custom' },
-                    ]}
-                />
-                <NumberInput
-                    label="Buckets"
-                    value={bucketCount ?? 25}
-                    onChange={(val) => onBucketCountChange(Number(val))}
-                    min={2}
-                    max={250}
-                    step={1}
-                    disabled={bucketMode === "default"}
-                />
+            <Legend
+                scale={colorScale}
+                categoryColors={categoryColors}
+                onCategoryColorChange={onCategoryColorChange}
+            />
+            {!isCategorical && (
+                <Stack gap="xs" mt="xs">
+                    <Text size="sm" fw={500}>Coloring</Text>
+                    <SegmentedControl
+                        value={mode}
+                        onChange={handleModeChange}
+                        data={[
+                            { label: 'Default', value: 'default' },
+                            { label: 'Custom', value: 'custom' },
+                        ]}
+                    />
+                    
+                    <Text size="sm" fw={500}>Number of buckets</Text>
+                    <SegmentedControl
+                        value={bucketMode}
+                        onChange={handleBucketModeChange}
+                        data={[
+                            { label: 'Default', value: 'default' },
+                            { label: 'Custom', value: 'custom' },
+                        ]}
+                    />
+                    <NumberInput
+                        label="Buckets"
+                        value={bucketCount ?? 25}
+                        onChange={(val) => onBucketCountChange(Number(val))}
+                        min={2}
+                        max={250}
+                        step={1}
+                        disabled={bucketMode === "default"}
+                    />
 
-                {mode === 'custom' && (
-                    <Group grow>
-                        <ColorInput 
-                            label={
-                                <Group gap={5} align="center">
-                                    <Text size="sm">Min Color</Text>
-                                </Group>
-                            }
-                            placeholder="Min Color" 
-                            value={startColor} 
-                            onChange={(val) => handleColorChange('start', val)} 
-                            format="hex"
-                            swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
-                        />
-                        <ColorInput 
-                            label={
-                                <Group gap={5} align="center">
-                                    <Text size="sm">Max Color</Text>
-                                </Group>
-                            }
-                            placeholder="Max Color" 
-                            value={endColor} 
-                            onChange={(val) => handleColorChange('end', val)} 
-                            format="hex"
-                            swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
-                        />
-                    </Group>
-                )}
-            </Stack>
+                    {mode === 'custom' && (
+                        <Group grow>
+                            <ColorInput 
+                                label={
+                                    <Group gap={5} align="center">
+                                        <Text size="sm">Min Color</Text>
+                                    </Group>
+                                }
+                                placeholder="Min Color" 
+                                value={startColor} 
+                                onChange={(val) => handleColorChange('start', val)} 
+                                format="hex"
+                                swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
+                            />
+                            <ColorInput 
+                                label={
+                                    <Group gap={5} align="center">
+                                        <Text size="sm">Max Color</Text>
+                                    </Group>
+                                }
+                                placeholder="Max Color" 
+                                value={endColor} 
+                                onChange={(val) => handleColorChange('end', val)} 
+                                format="hex"
+                                swatches={['#fafa6e', '#2A4858', '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF']}
+                            />
+                        </Group>
+                    )}
+                </Stack>
+            )}
         </>
     );
 }

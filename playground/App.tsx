@@ -4,7 +4,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { InteractiveHilbert, useControlledHilbert, useEnableKeyBindings } from '../lib/main';
 import { Sidebar } from './components/Sidebar';
 import { usePlaygroundWorker } from './hooks/usePlaygroundWorker';
-import { createDataLookupFunction, createValueColoringFunction, valueText, createColorScale } from './rendering-functions';
+import { createDataLookupFunction, createValueColoringFunction, valueText, createColorScale, isContinuousColorScale, PlaygroundColorScale } from './rendering-functions';
 import { generateIPv4ExpansionPrefixes } from '@/utils/prefix-utils';
 import TutorialModal from './components/TutorialModal';
 import './App.css';
@@ -30,35 +30,58 @@ function App() {
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
 
     // Settings state
-    const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min'>('mean');
+    const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min' | 'categorical'>('mean');
     const [defaultValue, setDefaultValue] = useState<number>(0);
+    const [mixedValue, setMixedValue] = useState<number>(-1);
     const [propagate, setPropagate] = useState<boolean>(true);
     const [ignoreDefaultInAggregation, setIgnoreDefaultInAggregation] = useState<boolean>(true);
     const [colors, setColors] = useState<string[]>(["green", "yellow", "red"]);
     const [bucketCount, setBucketCount] = useState<number| null>(null);
+    const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
 
     // Prepare render functions
     const dataRenderer = useMemo(() => createDataLookupFunction(deferredData, 
         aggregation, 
         {
             defaultValue: defaultValue, 
-            ignoreDefaultInAggregation: ignoreDefaultInAggregation
+            ignoreDefaultInAggregation: ignoreDefaultInAggregation,
+            mixedValue: mixedValue
         }), 
-        [deferredData, aggregation, defaultValue, ignoreDefaultInAggregation]
+        [deferredData, aggregation, defaultValue, ignoreDefaultInAggregation, mixedValue]
     );
     
     const colorScale = useMemo(() => {
         if (!deferredData) return null;
 
-        const rawScale = createColorScale(deferredData.raw, defaultValue, colors, bucketCount);
-        const colorMaps: Record<string, chroma.Scale> = {};
+        const rawScale = createColorScale(
+            deferredData.raw, 
+            defaultValue, 
+            colors, 
+            bucketCount,
+            {
+                isCategorical: aggregation === 'categorical',
+                mixedValue: mixedValue,
+                categoryColors,
+                ignoreDefaultInAggregation
+            }
+        );
+        const colorMaps: Record<string, PlaygroundColorScale> = {};
         colorMaps["raw"] = rawScale;
         if (aggregation === "sum") {
             for (const map of Object.keys(deferredData.maps)) {
-                let scale;
+                let scale: PlaygroundColorScale;
                 if (Number(map) > deferredData.metadata.resolution - 8) {
                     // Approximate for the last layers for speed
-                    scale = chroma.scale(colors).domain(rawScale.domain().map(v => v* 2**(deferredData.metadata.resolution - Number(map))))
+                    if (!isContinuousColorScale(rawScale)) {
+                        continue;
+                    }
+                    const domain = rawScale.domain.map(v => v * 2**(deferredData.metadata.resolution - Number(map)));
+                    scale = {
+                        kind: "continuous",
+                        domain,
+                        classes: false,
+                        scale: chroma.scale(colors).domain(domain)
+                    };
                 } else {
 
                     const rawValues = Object.keys(deferredData.maps[Number(map)])
@@ -80,7 +103,14 @@ function App() {
         } 
         return colorMaps;
 
-    }, [deferredData, colors, aggregation, defaultValue, bucketCount]);
+    }, [deferredData, colors, aggregation, defaultValue, bucketCount, mixedValue, categoryColors]);
+
+    const handleCategoryColorChange = (value: number, color: string) => {
+        setCategoryColors((prev) => ({
+            ...prev,
+            [String(value)]: color
+        }));
+    };
 
     const visualRenderer = useMemo(() => {
         if (!deferredData || !colorScale) return () => {};
@@ -106,33 +136,38 @@ function App() {
         }
     };
 
-    const handleSettingsChange = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean; ignoreDefaultInAggregation: boolean; }) => {
-        const returnVal = settings.aggregation === aggregation;
+    const handleSettingsChange = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean; ignoreDefaultInAggregation: boolean; }) => {
+        const shouldReparse =
+            settings.aggregation !== aggregation
+            || settings.defaultValue !== defaultValue
+            || settings.propagate !== propagate
+            || settings.ignoreDefaultInAggregation !== ignoreDefaultInAggregation;
 
         setAggregation(settings.aggregation);
         setDefaultValue(settings.defaultValue);
+        setMixedValue(settings.mixedValue);
         setPropagate(settings.propagate);
         setIgnoreDefaultInAggregation(settings.ignoreDefaultInAggregation);
 
-        return returnVal;
+        return shouldReparse;
     };
 
     const [lastContent, setLastContent] = useState<string | null>(null);
 
-    const handleFullUpdate = (content: string, settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
+    const handleFullUpdate = (content: string, settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
         setLastContent(content);
-        parseData(content, settings.defaultValue, settings.propagate, settings.ignoreDefaultInAggregation);
+        parseData(content, settings.aggregation, settings.defaultValue, settings.propagate, settings.ignoreDefaultInAggregation);
     }
     
     const onUpload = (content: string) => {
-        handleFullUpdate(content, { aggregation, defaultValue, propagate, ignoreDefaultInAggregation });
+        handleFullUpdate(content, { aggregation, defaultValue, mixedValue, propagate, ignoreDefaultInAggregation });
     }
 
-    const onSettingsUpdate = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
+    const onSettingsUpdate = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
         const haveToReparse = handleSettingsChange(settings);
         if (lastContent && haveToReparse) {
             // Re-run worker
-            parseData(lastContent, settings.defaultValue, settings.propagate, settings.ignoreDefaultInAggregation);
+            parseData(lastContent, settings.aggregation, settings.defaultValue, settings.propagate, settings.ignoreDefaultInAggregation);
         }
     }
 
@@ -162,7 +197,10 @@ function App() {
                             isExpanded={collapseStatus}
                             hasData={!!data}
                             metadata={data?.metadata}
-                            colorScale={colorScale ? colorScale["raw"]: null}
+                            colorScale={colorScale ? colorScale["raw"] : null}
+                            isCategorical={aggregation === 'categorical'}
+                            categoryColors={categoryColors}
+                            onCategoryColorChange={handleCategoryColorChange}
                             onColorsChange={setColors}
                             bucketCount={bucketCount}
                             onBucketCountChange={setBucketCount}

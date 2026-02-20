@@ -55,12 +55,18 @@ export function usePlaygroundWorker() {
         };
     }, []);
 
-    const parseData = useCallback((csvContent: string, defaultValue: number, propagate: boolean, ignoreDefaultInAggregation: boolean) => {
+    const parseData = useCallback((
+        csvContent: string,
+        aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical',
+        defaultValue: number,
+        propagate: boolean,
+        ignoreDefaultInAggregation: boolean
+    ) => {
         if (worker) {
             setIsParsing(true);
             setProgress({ phase: 'Starting', progress: 0 });
             setError(null);
-            worker.postMessage({ csvContent, defaultValue, propagate, ignoreDefaultInAggregation });
+            worker.postMessage({ csvContent, aggregation, defaultValue, propagate, ignoreDefaultInAggregation });
         }
     }, [worker]);
 

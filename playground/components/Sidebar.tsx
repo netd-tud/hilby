@@ -1,12 +1,12 @@
 import { FileButton, Button, NativeSelect, NumberInput, Checkbox, Group, Stack, Text, Title, Box, ActionIcon, Tooltip } from '@mantine/core';
 import { useState } from 'react';
-import { Scale } from 'chroma-js';
 import { FaQuestionCircle, FaInfoCircle } from 'react-icons/fa';
 import { ColoringControls } from './ColoringControls';
+import { PlaygroundColorScale } from '../rendering-functions';
 
 interface SidebarProps {
     onUpload: (content: string) => void;
-    onSettingsChange: (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => void;
+    onSettingsChange: (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => void;
     onExpand: () => void;
     onReset: () => void;
     onOpenTutorial: () => void;
@@ -19,22 +19,27 @@ interface SidebarProps {
         resolution: number;
         coveringPrefix: string;
     } | null;
-    colorScale?: Scale | null;
+    colorScale?: PlaygroundColorScale | null;
+    isCategorical: boolean;
+    categoryColors: Record<string, string>;
+    onCategoryColorChange: (value: number, color: string) => void;
     onColorsChange: (colors: string[]) => void;
     bucketCount: number | null;
     onBucketCountChange: (count: number | null) => void;
 }
 
-export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, onColorsChange, bucketCount, onBucketCountChange }: SidebarProps) {
+export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, isCategorical, categoryColors, onCategoryColorChange, onColorsChange, bucketCount, onBucketCountChange }: SidebarProps) {
     const [file, setFile] = useState<File | null>(null);
-    const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min'>('mean');
+    const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min' | 'categorical'>('mean');
     const [defaultValue, setDefaultValue] = useState<number>(0);
+    const [mixedValue, setMixedValue] = useState<number>(-1);
     const [propagate, setPropagate] = useState<boolean>(true);
     const [ignoreDefaultInAggregation, setIgnoreDefaultInAggregation] = useState<boolean>(true);
 
     const [committedSettings, setCommittedSettings] = useState({
         aggregation: 'mean',
         defaultValue: 0,
+        mixedValue: -1,
         propagate: true,
         ignoreDefaultInAggregation: true
     });
@@ -42,6 +47,7 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
     const isSettingsDirty = 
         aggregation !== committedSettings.aggregation ||
         defaultValue !== committedSettings.defaultValue ||
+        mixedValue !== committedSettings.mixedValue ||
         propagate !== committedSettings.propagate ||
         ignoreDefaultInAggregation !== committedSettings.ignoreDefaultInAggregation;
 
@@ -57,7 +63,7 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
         }
     };
 
-    const handleSettingsUpdate = (updates: Partial<{ aggregation: 'sum' | 'mean' | 'max' | 'min'; defaultValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }>) => {
+    const handleSettingsUpdate = (updates: Partial<{ aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }>) => {
         if (updates.aggregation) {
             setAggregation(updates.aggregation);
             const newCommitted = { ...committedSettings, aggregation: updates.aggregation };
@@ -65,12 +71,14 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
             onSettingsChange({
                 ...newCommitted,
                 defaultValue: committedSettings.defaultValue,
+                mixedValue: committedSettings.mixedValue,
                 propagate: committedSettings.propagate,
                 ignoreDefaultInAggregation: committedSettings.ignoreDefaultInAggregation
             });
         }
         
         if (updates.defaultValue !== undefined) setDefaultValue(updates.defaultValue);
+        if (updates.mixedValue !== undefined) setMixedValue(updates.mixedValue);
         if (updates.propagate !== undefined) setPropagate(updates.propagate);
         if (updates.ignoreDefaultInAggregation !== undefined) setIgnoreDefaultInAggregation(updates.ignoreDefaultInAggregation);
     };
@@ -79,6 +87,7 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
         const newSettings = {
             aggregation,
             defaultValue,
+            mixedValue,
             propagate,
             ignoreDefaultInAggregation
         };
@@ -126,9 +135,9 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
                             {/* <InfoTooltip label="Select the method used to aggregate values for less specific subnets." /> */}
                         </Group>
                     }
-                    data={['mean', 'sum', 'max', 'min']}
+                    data={['mean', 'sum', 'max', 'min', 'categorical']}
                     value={aggregation}
-                    onChange={(event) => handleSettingsUpdate({ aggregation: event.currentTarget.value as 'sum' | 'mean' | 'max' | 'min' })}
+                    onChange={(event) => handleSettingsUpdate({ aggregation: event.currentTarget.value as 'sum' | 'mean' | 'max' | 'min' | 'categorical' })}
                     disabled={parsing}
                 />
                 <NumberInput
@@ -142,6 +151,19 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
                     onChange={(value) => handleSettingsUpdate({ defaultValue: Number(value) })}
                     disabled={parsing}
                 />
+                {aggregation === 'categorical' && (
+                    <NumberInput
+                        label={
+                            <Group gap={5} align="center">
+                                <Text size="sm">Mixed Value</Text>
+                                <InfoTooltip label="The value assigned to a subnet when its children have different values (mixed category)." />
+                            </Group>
+                        }
+                        value={mixedValue}
+                        onChange={(value) => handleSettingsUpdate({ mixedValue: Number(value) })}
+                        disabled={parsing}
+                    />
+                )}
                 <Group gap={5} align="center">
                     <Checkbox
                         label="Propagate value to subnets"
@@ -178,6 +200,9 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
                     {colorScale && (
                         <ColoringControls 
                             colorScale={colorScale}
+                            isCategorical={isCategorical}
+                            categoryColors={categoryColors}
+                            onCategoryColorChange={onCategoryColorChange}
                             onColorsChange={onColorsChange}
                             bucketCount={bucketCount}
                             onBucketCountChange={onBucketCountChange}

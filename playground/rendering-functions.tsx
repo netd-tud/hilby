@@ -1,15 +1,34 @@
 import { RenderFunction } from "../lib/main";
 import { PlaygroundData, TypedArray } from "./hooks/usePlaygroundWorker";
 import chroma from "chroma-js";
+
+export type PlaygroundColorScale =
+    | {
+          kind: "continuous";
+          scale: chroma.Scale<chroma.Color>;
+          domain: number[];
+          classes: number[] | false;
+      }
+    | {
+          kind: "categorical";
+          map: (val: number) => chroma.Color;
+          values: number[];
+            colorByValue: Record<string, string>;
+      };
+
+export const isContinuousColorScale = (
+    scale: PlaygroundColorScale
+): scale is Extract<PlaygroundColorScale, { kind: "continuous" }> => scale.kind === "continuous";
 /**
  * Creates a render function that populates config.properties['value'] based on the playground data.
  */
 export const createDataLookupFunction = (
     data: PlaygroundData | null,
-    aggregation: 'sum' | 'mean' | 'max' | 'min',
+    aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical',
     defaultValueSettings: {
         defaultValue: number,
-        ignoreDefaultInAggregation: boolean
+        ignoreDefaultInAggregation: boolean,
+        mixedValue: number
     }
 ): RenderFunction => {
     return (prefix: string, long: bigint, netmask: number, config) => {
@@ -30,6 +49,7 @@ export const createDataLookupFunction = (
                     case 'mean': value = entry.sum / entry.count; break;
                     case 'max': value = entry.max; break;
                     case 'min': value = entry.min; break;
+                    case 'categorical': value = entry.min !== entry.max ? defaultValueSettings.mixedValue : entry.min; break;
                 }
         } 
         // 2. If netmask is finer or equal to our resolution, look into the raw array
@@ -48,27 +68,47 @@ export const createDataLookupFunction = (
             const nValues = 2**(resolution - netmask);
             let counter = 0;
             value = aggregation === "min" ? Infinity : 0;
-            for (let i = 0; i < nValues; i++) {
-                const localValue = raw[baseIndex + i];
-                if (defaultValueSettings.ignoreDefaultInAggregation && localValue === defaultValueSettings.defaultValue) {
-                    counter += 1;
-                    continue;
-                }; 
-                switch (aggregation) {
-                    case "sum": value += localValue; break;
-                    case "mean": value += localValue; break;
-                    case "max": value = Math.max(value, localValue); break;
-                    case "min": value = Math.min(value, localValue); break;
+            
+            if (aggregation === 'categorical') {
+                let firstVal: number | null = null;
+                let isMixed = false;
+                for (let i = 0; i < nValues; i++) {
+                    const localValue = raw[baseIndex + i];
+                    if (defaultValueSettings.ignoreDefaultInAggregation && localValue === defaultValueSettings.defaultValue) continue;
+                    
+                    if (firstVal === null) {
+                        firstVal = localValue;
+                    } else if (firstVal !== localValue) {
+                        isMixed = true;
+                        break;
+                    }
                 }
-            }
-
-            if (aggregation === "mean") {
-                let fixedCount = nValues;
-                if (defaultValueSettings.ignoreDefaultInAggregation) {
-                    fixedCount -= counter;
+                if (isMixed) value = defaultValueSettings.mixedValue;
+                else value = firstVal !== null ? firstVal : defaultValueSettings.defaultValue;
+            } else {
+                console.log(nValues)
+                for (let i = 0; i < nValues; i++) {
+                    const localValue = raw[baseIndex + i];
+                    if (defaultValueSettings.ignoreDefaultInAggregation && localValue === defaultValueSettings.defaultValue) {
+                        counter += 1;
+                        continue;
+                    }; 
+                    switch (aggregation) {
+                        case "sum": value += localValue; break;
+                        case "mean": value += localValue; break;
+                        case "max": value = Math.max(value, localValue); break;
+                        case "min": value = Math.min(value, localValue); break;
+                    }
                 }
-                if (fixedCount != 0)
-                    value = value / fixedCount;
+    
+                if (aggregation === "mean") {
+                    let fixedCount = nValues;
+                    if (defaultValueSettings.ignoreDefaultInAggregation) {
+                        fixedCount -= counter;
+                    }
+                    if (fixedCount != 0)
+                        value = value / fixedCount;
+                }
             }
 
         }
@@ -77,7 +117,55 @@ export const createDataLookupFunction = (
     }
 };
 
-export const createColorScale = (raw: TypedArray, defaultValue: number, colors: string[] = ["green", "yellow", 'red'], buckets: number | null = null) => {
+export const createColorScale = (
+    raw: TypedArray, 
+    defaultValue: number, 
+    colors: string[] = ["green", "yellow", 'red'], 
+    buckets: number | null = null,
+    categoricalSettings?: {
+        isCategorical: boolean,
+        mixedValue: number,
+        categoryColors?: Record<string, string>,
+        ignoreDefaultInAggregation?: boolean
+    }
+): PlaygroundColorScale => {
+    if (categoricalSettings?.isCategorical) {
+        const uniqueValues = new Set<number>();
+        if (categoricalSettings.mixedValue !== undefined) uniqueValues.add(categoricalSettings.mixedValue);
+        
+        for(let i=0; i<raw.length; i++) {
+            const val = raw[i];
+            if (categoricalSettings.ignoreDefaultInAggregation && val === defaultValue) continue;
+            uniqueValues.add(val);
+        }
+        
+        const sortedValues = Array.from(uniqueValues).sort((a,b) => a - b);
+        
+        let palette: string[];
+        if (sortedValues.length <= 12) {
+            palette = chroma.scale('Paired').mode('lch').colors(sortedValues.length);
+        } else {
+             palette = chroma.scale('Spectral').mode('lch').colors(sortedValues.length);
+        }
+        
+        const colorMap = new Map<number, string>();
+        sortedValues.forEach((v, i) => {
+            const overrideColor = categoricalSettings.categoryColors?.[String(v)];
+            colorMap.set(v, overrideColor ?? palette[i % palette.length]);
+        });
+
+        const colorByValue = Object.fromEntries(
+            sortedValues.map((v) => [String(v), colorMap.get(v) ?? "#000000"])
+        );
+
+        return {
+            kind: "categorical",
+            values: sortedValues,
+            colorByValue,
+            map: (val: number) => chroma(colorMap.get(val) ?? "black")
+        };
+    }
+
     let samples: number[] = [];
 
     if (raw.length <= 1000) {
@@ -91,11 +179,22 @@ export const createColorScale = (raw: TypedArray, defaultValue: number, colors: 
     }
 
     if (buckets === null) {
-        return chroma.scale(colors).domain(samples.sort((a,b) => a -b));
-    } else {
-        const limits = chroma.limits(samples.sort((a,b) => a -b), 'q', buckets);
-        return chroma.scale(colors).domain([limits[0], limits.at(-1) ?? 1]).classes(limits)
+        const domain = samples.sort((a,b) => a -b);
+        return {
+            kind: "continuous",
+            domain,
+            classes: false,
+            scale: chroma.scale(colors).domain(domain)
+        };
     }
+
+    const limits = chroma.limits(samples.sort((a,b) => a -b), 'q', buckets);
+    return {
+        kind: "continuous",
+        domain: [limits[0], limits.at(-1) ?? 1],
+        classes: limits,
+        scale: chroma.scale(colors).domain([limits[0], limits.at(-1) ?? 1]).classes(limits)
+    };
 }
 
 /**
@@ -104,8 +203,15 @@ export const createColorScale = (raw: TypedArray, defaultValue: number, colors: 
 export const createValueColoringFunction = (
     min: number,
     _max: number,
-    quantileScales: Record<string, chroma.Scale<chroma.Color>>
+    quantileScales: Record<string, PlaygroundColorScale>
 ): RenderFunction => {
+    const getColor = (scale: PlaygroundColorScale, value: number) => {
+        if (scale.kind === "categorical") {
+            return scale.map(value);
+        }
+        return scale.scale(value);
+    };
+
     if (Object.keys(quantileScales).length === 1) {
         // we are not in a sum aggregation
         const quantileScale = quantileScales["raw"];
@@ -114,7 +220,7 @@ export const createValueColoringFunction = (
             const value = config.properties['value'] as number;
             if (value === undefined) return;
     
-            const color = quantileScale(value);
+            const color = getColor(quantileScale, value);
     
             // If value is effectively "zero" or "default", use a neutral color
             // (Note: user can define default, so we check against min/max if appropriate, 
@@ -137,7 +243,7 @@ export const createValueColoringFunction = (
 
             const quantileScale = quantileScales[netmask.toString()] ?? quantileScales["raw"];
     
-            const color = quantileScale(value);
+            const color = getColor(quantileScale, value);
     
             // If value is effectively "zero" or "default", use a neutral color
             // (Note: user can define default, so we check against min/max if appropriate, 
