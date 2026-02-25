@@ -35,6 +35,9 @@ export function ColoringControls({
     const throttledUpdateParent = useThrottledCallback((colors: string[]) => {
         onColorsChange(colors);
     }, 25);
+    const throttledCategorialUpdateParent = useThrottledCallback((value: number, color: string) => {
+        onCategoryColorChange(value, color);
+    }, 25);
 
     const bucketMode = bucketCount === null ? 'default' : 'custom';
 
@@ -79,7 +82,7 @@ export function ColoringControls({
                 scale={colorScale}
                 contextLabel={legendContextLabel}
                 categoryColors={categoryColors}
-                onCategoryColorChange={onCategoryColorChange}
+                onCategoryColorChange={throttledCategorialUpdateParent}
             />
             {!isCategorical && (
                 <Stack gap="xs" mt="xs">
