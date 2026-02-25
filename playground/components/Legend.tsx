@@ -3,18 +3,23 @@ import { PlaygroundColorScale } from '../rendering-functions';
 
 export const Legend = ({
     scale,
+    contextLabel,
     categoryColors,
     onCategoryColorChange
 }: {
     scale: PlaygroundColorScale;
+    contextLabel?: string;
     categoryColors?: Record<string, string>;
     onCategoryColorChange?: (value: number, color: string) => void;
 }) => {
     if (scale.kind === 'categorical') {
         const domain = scale.values;
+        const hasFloat = domain.some((v) => !Number.isInteger(v));
+        const formatValue = (value: number) => hasFloat ? value.toFixed(2) : value.toString();
         return (
             <Stack gap={4} mt="xs">
                 <Text size="sm" fw={500}>Legend</Text>
+                {contextLabel && <Text size="xs" c="dimmed">{contextLabel}</Text>}
                 <Group gap="xs" style={{ flexWrap: 'wrap' }}>
                     {domain.map((val) => (
                         <Group key={val} gap={4}>
@@ -51,7 +56,7 @@ export const Legend = ({
                                     </Popover.Dropdown>
                                 )}
                             </Popover>
-                            {domain.length <= 10 && <Text size="xs">{val}</Text>}
+                            {domain.length <= 10 && <Text size="xs">{formatValue(val)}</Text>}
                         </Group>
                     ))}
                 </Group>
@@ -60,6 +65,8 @@ export const Legend = ({
     }
 
     const domain = scale.classes || scale.domain;
+    const hasFloat = domain.some((v) => !Number.isInteger(v));
+    const formatValue = (value: number) => hasFloat ? value.toFixed(2) : value.toString();
 
     // For quantile scales, domain() returns the threshold values.
     // We want to display the color for each bucket.
@@ -71,9 +78,10 @@ export const Legend = ({
         return (
             <Stack gap={4} mt="xs">
                 <Text size="sm" fw={500}>Legend</Text>
+                {contextLabel && <Text size="xs" c="dimmed">{contextLabel}</Text>}
                 <div style={{ height: 20, width: '100%', backgroundColor: scale.scale(domain[0]).css(), borderRadius: 4 }} />
                 <Group justify="center">
-                    <Text size="xs">{domain[0]?.toFixed(2) ?? "N/A"}</Text>
+                    <Text size="xs">{domain[0] !== undefined ? formatValue(domain[0]) : "N/A"}</Text>
                 </Group>
             </Stack>
         );
@@ -92,11 +100,14 @@ export const Legend = ({
     let showValues;
 
     if (domain.length < 6) {
-        showValues = domain.map(v => v.toFixed(2));
+        showValues = domain.map((v) => formatValue(v));
     } else {
         showValues = [];
         for (let i = 0; i < 5; i++) {
-            showValues.push(domain[Math.floor((domain.length - 1) / 4 * i)]?.toFixed(2))
+            const value = domain[Math.floor((domain.length - 1) / 4 * i)];
+            if (value !== undefined) {
+                showValues.push(formatValue(value));
+            }
 
         }
     }
@@ -104,12 +115,13 @@ export const Legend = ({
     return (
         <Stack gap={4} mt="xs">
             <Text size="sm" fw={500}>Legend</Text>
+            {contextLabel && <Text size="xs" c="dimmed">{contextLabel}</Text>}
             <div style={{ display: 'flex', height: 20, width: '100%', borderRadius: 4, overflow: 'hidden' }}>
                 {segments}
             </div>
             <Group justify="space-between">
-                {showValues.map(v => (
-                    <Text size="xs">{v}</Text>
+                {showValues.map((v, idx) => (
+                    <Text size="xs" key={`${v}-${idx}`}>{v}</Text>
                 ))}
             </Group>
         </Stack>

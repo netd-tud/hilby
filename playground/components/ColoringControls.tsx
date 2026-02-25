@@ -6,6 +6,7 @@ import { PlaygroundColorScale } from '../rendering-functions';
 
 interface ColoringControlsProps {
     colorScale: PlaygroundColorScale;
+    legendContextLabel?: string;
     isCategorical: boolean;
     categoryColors: Record<string, string>;
     onCategoryColorChange: (value: number, color: string) => void;
@@ -16,6 +17,7 @@ interface ColoringControlsProps {
 
 export function ColoringControls({ 
     colorScale, 
+    legendContextLabel,
     isCategorical,
     categoryColors,
     onCategoryColorChange,
@@ -75,6 +77,7 @@ export function ColoringControls({
         <>
             <Legend
                 scale={colorScale}
+                contextLabel={legendContextLabel}
                 categoryColors={categoryColors}
                 onCategoryColorChange={onCategoryColorChange}
             />

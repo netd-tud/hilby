@@ -20,6 +20,7 @@ interface SidebarProps {
         coveringPrefix: string;
     } | null;
     colorScale?: PlaygroundColorScale | null;
+    legendContextLabel?: string;
     isCategorical: boolean;
     categoryColors: Record<string, string>;
     onCategoryColorChange: (value: number, color: string) => void;
@@ -28,7 +29,7 @@ interface SidebarProps {
     onBucketCountChange: (count: number | null) => void;
 }
 
-export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, isCategorical, categoryColors, onCategoryColorChange, onColorsChange, bucketCount, onBucketCountChange }: SidebarProps) {
+export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, legendContextLabel, isCategorical, categoryColors, onCategoryColorChange, onColorsChange, bucketCount, onBucketCountChange }: SidebarProps) {
     const [file, setFile] = useState<File | null>(null);
     const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min' | 'categorical'>('mean');
     const [defaultValue, setDefaultValue] = useState<number>(0);
@@ -200,6 +201,7 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
                     {colorScale && (
                         <ColoringControls 
                             colorScale={colorScale}
+                            legendContextLabel={legendContextLabel}
                             isCategorical={isCategorical}
                             categoryColors={categoryColors}
                             onCategoryColorChange={onCategoryColorChange}

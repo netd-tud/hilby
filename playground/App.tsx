@@ -24,7 +24,8 @@ function App() {
         }
     }, [open]);
 
-    const [hilbertStore, prefixManipulation, zoomManipulation] = useControlledHilbert();
+    const [hilbertStore, prefixManipulation, zoomManipulation, useHoveredPrefix] = useControlledHilbert();
+    const hoveredPrefix = useHoveredPrefix();
     const [topPrefix, setTopPrefix, keyHandler] = useEnableKeyBindings(hilbertStore, { originalTopPrefix: "0.0.0.0/0" });
 
     const [collapseStatus, setCollapseStatus] = useState<boolean>(false);
@@ -103,7 +104,7 @@ function App() {
         } 
         return colorMaps;
 
-    }, [deferredData, colors, aggregation, defaultValue, bucketCount, mixedValue, categoryColors]);
+    }, [deferredData, colors, aggregation, defaultValue, bucketCount, mixedValue, categoryColors, ignoreDefaultInAggregation]);
 
     const handleCategoryColorChange = (value: number, color: string) => {
         setCategoryColors((prev) => ({
@@ -111,6 +112,48 @@ function App() {
             [String(value)]: color
         }));
     };
+
+    const hoveredNetmask = useMemo(() => {
+        const prefix = hoveredPrefix?.prefix;
+        if (!prefix || !prefix.includes('/')) return null;
+
+        const netmask = Number(prefix.split('/')[1]);
+        if (!Number.isFinite(netmask)) return null;
+        return netmask;
+    }, [hoveredPrefix?.prefix]);
+
+    const legendScaleInfo = useMemo(() => {
+        if (!colorScale) {
+            return { scale: null, contextLabel: undefined as string | undefined };
+        }
+
+        if (aggregation !== 'sum') {
+            return { scale: colorScale["raw"], contextLabel: undefined as string | undefined };
+        }
+
+        if (hoveredNetmask !== null) {
+            const hoveredScale = colorScale[String(hoveredNetmask)];
+            if (hoveredScale) {
+                return {
+                    scale: hoveredScale,
+                    contextLabel: `Values for hovered netmask /${hoveredNetmask}`
+                };
+            }
+
+            const rawResolution = deferredData?.metadata.resolution;
+            if (rawResolution !== undefined && hoveredNetmask >= rawResolution) {
+                return {
+                    scale: colorScale["raw"],
+                    contextLabel: `Values for hovered netmask /${hoveredNetmask} (base scale)`
+                };
+            }
+        }
+
+        return {
+            scale: colorScale["raw"],
+            contextLabel: 'Hover a prefix to see legend values for its netmask'
+        };
+    }, [aggregation, colorScale, hoveredNetmask, deferredData?.metadata.resolution]);
 
     const visualRenderer = useMemo(() => {
         if (!deferredData || !colorScale) return () => {};
@@ -197,7 +240,8 @@ function App() {
                             isExpanded={collapseStatus}
                             hasData={!!data}
                             metadata={data?.metadata}
-                            colorScale={colorScale ? colorScale["raw"] : null}
+                            colorScale={legendScaleInfo.scale}
+                            legendContextLabel={legendScaleInfo.contextLabel}
                             isCategorical={aggregation === 'categorical'}
                             categoryColors={categoryColors}
                             onCategoryColorChange={handleCategoryColorChange}
