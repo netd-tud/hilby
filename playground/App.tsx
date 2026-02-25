@@ -183,6 +183,7 @@ function App() {
         const shouldReparse =
             settings.aggregation !== aggregation
             || settings.defaultValue !== defaultValue
+            || (settings.aggregation === 'categorical' && settings.mixedValue !== mixedValue)
             || settings.propagate !== propagate
             || settings.ignoreDefaultInAggregation !== ignoreDefaultInAggregation;
 
@@ -198,19 +199,20 @@ function App() {
     const [lastContent, setLastContent] = useState<string | null>(null);
 
     const handleFullUpdate = (content: string, settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
+        handleSettingsChange(settings);
         setLastContent(content);
-        parseData(content, settings.aggregation, settings.defaultValue, settings.propagate, settings.ignoreDefaultInAggregation);
+        parseData(content, settings.aggregation, settings.defaultValue, settings.mixedValue, settings.propagate, settings.ignoreDefaultInAggregation);
     }
     
-    const onUpload = (content: string) => {
-        handleFullUpdate(content, { aggregation, defaultValue, mixedValue, propagate, ignoreDefaultInAggregation });
+    const onUpload = (content: string, settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
+        handleFullUpdate(content, settings);
     }
 
     const onSettingsUpdate = (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => {
         const haveToReparse = handleSettingsChange(settings);
         if (lastContent && haveToReparse) {
             // Re-run worker
-            parseData(lastContent, settings.aggregation, settings.defaultValue, settings.propagate, settings.ignoreDefaultInAggregation);
+            parseData(lastContent, settings.aggregation, settings.defaultValue, settings.mixedValue, settings.propagate, settings.ignoreDefaultInAggregation);
         }
     }
 

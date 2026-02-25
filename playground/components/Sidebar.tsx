@@ -5,7 +5,7 @@ import { ColoringControls } from './ColoringControls';
 import { PlaygroundColorScale } from '../rendering-functions';
 
 interface SidebarProps {
-    onUpload: (content: string) => void;
+    onUpload: (content: string, settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => void;
     onSettingsChange: (settings: { aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }) => void;
     onExpand: () => void;
     onReset: () => void;
@@ -31,6 +31,7 @@ interface SidebarProps {
 
 export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenTutorial, parsing, isExpanded, hasData, metadata, colorScale, legendContextLabel, isCategorical, categoryColors, onCategoryColorChange, onColorsChange, bucketCount, onBucketCountChange }: SidebarProps) {
     const [file, setFile] = useState<File | null>(null);
+    const [pendingUploadContent, setPendingUploadContent] = useState<string | null>(null);
     const [aggregation, setAggregation] = useState<'sum' | 'mean' | 'max' | 'min' | 'categorical'>('mean');
     const [defaultValue, setDefaultValue] = useState<number>(0);
     const [mixedValue, setMixedValue] = useState<number>(-1);
@@ -51,14 +52,16 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
         mixedValue !== committedSettings.mixedValue ||
         propagate !== committedSettings.propagate ||
         ignoreDefaultInAggregation !== committedSettings.ignoreDefaultInAggregation;
+    const hasPendingChanges = isSettingsDirty || !!pendingUploadContent;
 
     const handleFileChange = (payload: File | null) => {
         setFile(payload);
+        setPendingUploadContent(null);
         if (payload) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 const content = e.target?.result as string;
-                onUpload(content);
+                setPendingUploadContent(content);
             };
             reader.readAsText(payload);
         }
@@ -67,15 +70,6 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
     const handleSettingsUpdate = (updates: Partial<{ aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical'; defaultValue: number; mixedValue: number; propagate: boolean, ignoreDefaultInAggregation: boolean }>) => {
         if (updates.aggregation) {
             setAggregation(updates.aggregation);
-            const newCommitted = { ...committedSettings, aggregation: updates.aggregation };
-            setCommittedSettings(newCommitted);
-            onSettingsChange({
-                ...newCommitted,
-                defaultValue: committedSettings.defaultValue,
-                mixedValue: committedSettings.mixedValue,
-                propagate: committedSettings.propagate,
-                ignoreDefaultInAggregation: committedSettings.ignoreDefaultInAggregation
-            });
         }
         
         if (updates.defaultValue !== undefined) setDefaultValue(updates.defaultValue);
@@ -84,7 +78,7 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
         if (updates.ignoreDefaultInAggregation !== undefined) setIgnoreDefaultInAggregation(updates.ignoreDefaultInAggregation);
     };
 
-    const applySettings = () => {
+    const applyChanges = () => {
         const newSettings = {
             aggregation,
             defaultValue,
@@ -92,7 +86,14 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
             propagate,
             ignoreDefaultInAggregation
         };
-        onSettingsChange(newSettings);
+
+        if (pendingUploadContent) {
+            onUpload(pendingUploadContent, newSettings);
+            setPendingUploadContent(null);
+        } else if (isSettingsDirty) {
+            onSettingsChange(newSettings);
+        }
+
         setCommittedSettings(newSettings);
     };
 
@@ -183,9 +184,9 @@ export function Sidebar({ onUpload, onSettingsChange, onExpand, onReset, onOpenT
                     />
                     <InfoTooltip label="If checked, the 'Default Value' will be excluded from aggregation calculations (e.g., calculating the mean)." />
                 </Group>
-                {isSettingsDirty && (
-                    <Button onClick={applySettings} variant="light" color="blue" fullWidth mt="xs" loading={parsing}>
-                        Apply Settings
+                {hasPendingChanges && (
+                    <Button onClick={applyChanges} variant="light" color="blue" fullWidth mt="xs" loading={parsing}>
+                        Apply Changes
                     </Button>
                 )}
             </Stack>
