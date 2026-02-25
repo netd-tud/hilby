@@ -5,6 +5,7 @@ type WorkerInput = {
     csvContent: string;
     aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical';
     defaultValue: number;
+    mixedValue: number;
     propagate: boolean;
     ignoreDefaultInAggregation: boolean;
 };
@@ -23,7 +24,7 @@ const BATCH_SIZE = 10000;
 const isInt = (n: number) => n % 1 === 0;
 
 self.onmessage = async (e: MessageEvent<WorkerInput>) => {
-    const { csvContent, aggregation, defaultValue, propagate, ignoreDefaultInAggregation } = e.data;
+    const { csvContent, aggregation, defaultValue, mixedValue, propagate, ignoreDefaultInAggregation } = e.data;
 
     try {
         const lines = csvContent.split('\n');
@@ -400,7 +401,22 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
             }
 
             // categorical fallback when clamped finer values are mixed
-            raw[index] = entry.count > 0 && entry.min !== entry.max ? defaultValue : entry.min;
+            raw[index] = entry.count > 0 && entry.min !== entry.max ? mixedValue : entry.min;
+        }
+
+        if (!ignoreDefaultInAggregation) {
+            for (const levelStr in tempMaps) {
+                for (const prefix of Object.keys(tempMaps[levelStr])) {
+                    const map = tempMaps[levelStr][prefix];
+                    const totalCount = 2**(maxNetmask - Number(levelStr));
+                    if (map.count < totalCount) {
+                        if (defaultValue < map.min) map.min = defaultValue;
+                        if (defaultValue > map.max) map.max = defaultValue;
+                        map.sum += defaultValue * (totalCount - map.count);
+                        map.count = totalCount;
+                    }
+                }
+            }
         }
 
         self.postMessage({

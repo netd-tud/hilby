@@ -59,6 +59,7 @@ export function usePlaygroundWorker() {
         csvContent: string,
         aggregation: 'sum' | 'mean' | 'max' | 'min' | 'categorical',
         defaultValue: number,
+        mixedValue: number,
         propagate: boolean,
         ignoreDefaultInAggregation: boolean
     ) => {
@@ -66,7 +67,7 @@ export function usePlaygroundWorker() {
             setIsParsing(true);
             setProgress({ phase: 'Starting', progress: 0 });
             setError(null);
-            worker.postMessage({ csvContent, aggregation, defaultValue, propagate, ignoreDefaultInAggregation });
+            worker.postMessage({ csvContent, aggregation, defaultValue, mixedValue, propagate, ignoreDefaultInAggregation });
         }
     }, [worker]);
 
