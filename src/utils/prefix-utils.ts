@@ -18,7 +18,7 @@ export const generateIPv4ExpansionPrefixes = (basePrefix: string = "0.0.0.0", mi
         
         const factor = minPrefix === 0 ? 0.875 : 1;
         // We only need to do 0.875 because of the unused 224/4 and 240/4
-        for (let j = 0; j < (1 << (i)) * factor; j++) {
+        for (let j = 0; j < (1 << (i - minPrefix)) * factor; j++) {
             const prefix = long2ip(itr) + "/" + i.toString();
             prefixes.push(prefix);
             itr += ctr;
