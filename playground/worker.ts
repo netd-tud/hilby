@@ -116,6 +116,10 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
              const diffBits = diff.toString(2).length;
              commonPrefixLen = 32 - diffBits;
         }
+        // Hilby can only do even prefixes, so if the covering prefix is an uneven number, we want to go up by 1.
+        if (commonPrefixLen % 2 !== 0) {
+            commonPrefixLen -= 1;
+        }
 
         // The covering prefix base must be masked
         // coveringPrefixLen is e.g. 8. 
@@ -125,6 +129,11 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
         const coveringMask = (0xFFFFFFFFn << BigInt(32 - commonPrefixLen)) & 0xFFFFFFFFn;
         const baseIP = globalMinIP & coveringMask;
         
+        // Hilby can only do even prefixes, so if the covering prefix is an uneven number, we want to go down by 1.
+        if (maxNetmask % 2 !== 0){
+            maxNetmask += 1;
+        }
+
         // arraySize = 2 ^ (maxNetmask - commonPrefixLen)
         // e.g. cover /24, max /32 -> 2^(32-24) = 256
         const observedMaxNetmask = maxNetmask;
@@ -133,11 +142,9 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
         
         // Safety check for size
         if (exponent > 24) {
-                // Clamp resolution to keep size manageable (max 16M entries)
-                maxNetmask = commonPrefixLen + 24;
+            // Clamp resolution to keep size manageable (max 16M entries)
+            maxNetmask = commonPrefixLen + 24;
             resolutionWasClamped = true;
-                // re-calculate exponent
-                // exponent = 24;
         }
         
         const size = Math.pow(2, maxNetmask - commonPrefixLen);
