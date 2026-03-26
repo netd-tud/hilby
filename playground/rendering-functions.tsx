@@ -86,7 +86,6 @@ export const createDataLookupFunction = (
                 if (isMixed) value = defaultValueSettings.mixedValue;
                 else value = firstVal !== null ? firstVal : defaultValueSettings.defaultValue;
             } else {
-                console.log(nValues)
                 for (let i = 0; i < nValues; i++) {
                     const localValue = raw[baseIndex + i];
                     if (defaultValueSettings.ignoreDefaultInAggregation && localValue === defaultValueSettings.defaultValue) {
@@ -173,7 +172,7 @@ export const createColorScale = (
     } else {
         for (let i = 0; i <= raw.length; i += raw.length / 1000) {
             const value = raw[Math.floor(i)];
-            if (value !== defaultValue)
+            if (value !== defaultValue || !categoricalSettings?.ignoreDefaultInAggregation)
                 samples.push(value);
         }
     }
@@ -203,6 +202,8 @@ export const createColorScale = (
 export const createValueColoringFunction = (
     min: number,
     _max: number,
+    ignoreDefaultInAggregation: boolean,
+    defaultValue: number,
     quantileScales: Record<string, PlaygroundColorScale>
 ): RenderFunction => {
     const getColor = (scale: PlaygroundColorScale, value: number) => {
@@ -225,7 +226,7 @@ export const createValueColoringFunction = (
             // If value is effectively "zero" or "default", use a neutral color
             // (Note: user can define default, so we check against min/max if appropriate, 
             // but usually 0 is the "empty" signal)
-            if (value === 0 && min !== 0) {
+            if (ignoreDefaultInAggregation && value === defaultValue) {
                 config.style.backgroundColor = "#000000";
                 config.style.color = "#FFFFFF";
                 return;

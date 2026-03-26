@@ -160,9 +160,11 @@ function App() {
         return createValueColoringFunction(
             deferredData.metadata.minVal, 
             deferredData.metadata.maxVal, 
+            ignoreDefaultInAggregation,
+            defaultValue,
             colorScale
         );
-    }, [deferredData, colorScale]);
+    }, [deferredData, colorScale, ignoreDefaultInAggregation, defaultValue]);
 
     // We combine our data calculator + visualizers
     const renderFunctions = useMemo(() => [dataRenderer, visualRenderer, valueText], [dataRenderer, visualRenderer]);
