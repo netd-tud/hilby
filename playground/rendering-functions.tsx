@@ -249,7 +249,7 @@ export const createValueColoringFunction = (
             // If value is effectively "zero" or "default", use a neutral color
             // (Note: user can define default, so we check against min/max if appropriate, 
             // but usually 0 is the "empty" signal)
-            if (value === 0 && min !== 0) {
+            if (ignoreDefaultInAggregation && value === defaultValue) {
                 config.style.backgroundColor = "#000000";
                 config.style.color = "#FFFFFF";
                 return;
