@@ -1,5 +1,5 @@
 import { Button, Container, Group, Image, Text, Title } from "@mantine/core";
-import { FaBook, FaGithub, FaInfoCircle } from "react-icons/fa";
+import { FaBook, FaGithub, FaInfoCircle, FaFlask } from "react-icons/fa";
 import ripeLogo from "../ripe_stat_logo.png";
 import routeviewsLogo from "../routeviews_logo.png";
 import peeringDBLogo from "../peering_db_logo.png";
@@ -19,7 +19,7 @@ export default function Header({ openTutorial }: HeaderProps) {
                     <Title order={1}>Hilby</Title>
                     <Text c="dimmed" size="lg">Hilbert Interactive Prefix Plots</Text>
                 </div>
-                <Group justify="center">
+                <Group justify="space-between" w="100%">
                     <Group mr={"xl"}>
                         <Text size="md" mr={-15}>Live Data provided by</Text>
                         <a target="_blank" href="https://stat.ripe.net/">
@@ -35,6 +35,10 @@ export default function Header({ openTutorial }: HeaderProps) {
 
                     <Group>
                         <Button.Group mr={"lg"}>
+                            <Button component="a" variant="light" leftSection={<FaFlask />}
+                                target="_blank" href="https://hilby.netd.cs.tu-dresden.de/playground/">
+                                Playground
+                            </Button>
                             <Button component="a" variant="light" leftSection={<FaGithub />}
                                 target="_blank" href="https://github.com/netd-tud/hilby">
                                 GitHub
