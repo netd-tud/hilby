@@ -2,6 +2,7 @@ import { Button, Container, Group, Image, Text, Title } from "@mantine/core";
 import { FaBook, FaGithub, FaInfoCircle } from "react-icons/fa";
 import ripeLogo from "../ripe_stat_logo.png";
 import routeviewsLogo from "../routeviews_logo.png";
+import peeringDBLogo from "../peering_db_logo.png";
 
 interface HeaderProps {
     openTutorial: () => void;
@@ -28,7 +29,7 @@ export default function Header({ openTutorial }: HeaderProps) {
                             <Image src={routeviewsLogo} h={30} w={30} />
                         </a>
                         <a target="_blank" href="https://www.peeringdb.com/" style={{ marginLeft: "10px" }}>
-                            <Image src="https://www.peeringdb.com/s/2.71.0//pdb-logo-coloured.png" h={35} w={150} />
+                            <Image src={peeringDBLogo} h={35} w={150} />
                         </a>
                     </Group>
 
